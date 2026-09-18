@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'mikrotik_api.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'router_storage.dart';
 import 'add_hotspot_pages.dart';
 import 'templates_page.dart';
@@ -27,6 +28,22 @@ class MikrotikManagerApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.blue,
       ),
+      locale: const Locale('ar', 'SA'),
+      supportedLocales: const [
+        Locale('ar', 'SA'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const HomePage(),
     );
   }
