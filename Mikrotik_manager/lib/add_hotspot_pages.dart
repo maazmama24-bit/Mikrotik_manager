@@ -1075,7 +1075,6 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
 
     setState(() => _preview = list);
   }
-
   Future<void> _generate() async {
     if (_generating) return;
 
@@ -1089,9 +1088,12 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     final list = _buildList();
 
     if (list.isEmpty) {
-      _showMessage('لا يمكن توليد كروت. تحقق من البادئة والعدد.', isError: true);
+      _showMessage('لا يمكن توليد كروت. تحقق من الإعدادات.', isError: true);
       return;
     }
+
+    // حساب الوقت المتوقع
+    final estimatedMinutes = (list.length * 0.05).ceil();
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1100,7 +1102,8 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
           title: const Text('تأكيد التوليد'),
           content: Text(
             'سيتم إضافة ${list.length} كرت إلى الراوتر.\n\n'
-                'قد يستغرق الأمر عدة دقائق حسب العدد وسرعة الاتصال.\n\n'
+                '⏱️ الوقت المتوقع: ~$estimatedMinutes ثانية\n'
+                '(باستخدام 10 طلبات متوازية)\n\n'
                 'هل تريد المتابعة؟',
           ),
           actions: [
@@ -1128,34 +1131,65 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
       _totalCount = list.length;
     });
 
-    for (int i = 0; i < list.length; i++) {
+    // ============================================================
+    // Parallel Processing: 10 طلبات متوازية
+    // ============================================================
+    const int batchSize = 10;
+
+    final createdCards = <Map<String, String>>[];
+
+    for (int i = 0; i < list.length; i += batchSize) {
       if (_cancelled) break;
       if (!mounted) return;
 
-      setState(() => _currentIndex = i + 1);
+      final end = (i + batchSize > list.length)
+          ? list.length
+          : i + batchSize;
 
-      final card = list[i];
+      final batch = list.sublist(i, end);
 
-      try {
-        await _api.addHotspotUser(
-          name: card['name'] ?? '',
-          password: card['password'] ?? '',
-          profile: card['profile'] ?? '',
-          limitUptime: card['limit-uptime']?.isEmpty == true
-              ? null
-              : card['limit-uptime'],
-          limitBytesTotal: card['limit-bytes-total']?.isEmpty == true
-              ? null
-              : card['limit-bytes-total'],
-          comment: card['comment']?.isEmpty == true
-              ? null
-              : card['comment'],
-        );
+      // إرسال دفعة من 10 طلبات متوازية
+      final results = await Future.wait(
+        batch.map((card) async {
+          try {
+            await _api.addHotspotUser(
+              name: card['name'] ?? '',
+              password: card['password'] ?? '',
+              profile: card['profile'] ?? '',
+              limitUptime: card['limit-uptime']?.isEmpty == true
+                  ? null
+                  : card['limit-uptime'],
+              limitBytesTotal:
+              card['limit-bytes-total']?.isEmpty == true
+                  ? null
+                  : card['limit-bytes-total'],
+              comment: card['comment']?.isEmpty == true
+                  ? null
+                  : card['comment'],
+            );
 
-        if (mounted) setState(() => _generatedCount++);
-      } catch (e) {
-        if (mounted) setState(() => _failedCount++);
+            return {'success': 'true', 'card': card};
+          } catch (e) {
+            return {'success': 'false', 'card': card};
+          }
+        }),
+      );
+
+      // معالجة النتائج
+      for (final result in results) {
+        if (result['success'] == 'true') {
+          _generatedCount++;
+          createdCards.add(result['card']! as Map<String, String>);
+        } else {
+          _failedCount++;
+        }
       }
+
+      if (!mounted) return;
+
+      setState(() {
+        _currentIndex = end;
+      });
     }
 
     if (!mounted) return;
@@ -1163,12 +1197,14 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     setState(() => _generating = false);
 
     // حفظ المجموعة محلياً إذا نجح التوليد
-    if (_generatedCount > 0) {
-      await _saveGroup(list.take(_generatedCount).toList());
+    if (createdCards.isNotEmpty) {
+      await _saveGroup(createdCards);
     }
 
     if (_cancelled) {
-      _showMessage('تم الإلغاء. أُضيف $_generatedCount كرت بنجاح.');
+      _showMessage(
+        'تم الإلغاء. أُضيف $_generatedCount كرت بنجاح.',
+      );
     } else {
       _showMessage(
         'تم إضافة $_generatedCount كرت بنجاح'
