@@ -1867,7 +1867,6 @@ class _AddIpPoolDialogState extends State<_AddIpPoolDialog> {
 // =============================================================================
 // Add / Edit IP Address Dialog
 // =============================================================================
-
 class _IpAddressDialog extends StatefulWidget {
   final MikroTikApi api;
   final Map<String, String>? existing;
@@ -1884,8 +1883,11 @@ class _IpAddressDialog extends StatefulWidget {
 class _IpAddressDialogState extends State<_IpAddressDialog> {
   final _formKey = GlobalKey<FormState>();
   final _addressController = TextEditingController();
-  final _interfaceController = TextEditingController();
   final _commentController = TextEditingController();
+
+  String? _selectedInterface;
+  List<String> _interfaces = [];
+  bool _loadingInterfaces = true;
 
   bool _saving = false;
 
@@ -1897,21 +1899,65 @@ class _IpAddressDialogState extends State<_IpAddressDialog> {
 
     if (_isEditing) {
       _addressController.text = widget.existing!['address'] ?? '';
-      _interfaceController.text = widget.existing!['interface'] ?? '';
+      _selectedInterface = widget.existing!['interface'] ?? '';
       _commentController.text = widget.existing!['comment'] ?? '';
     }
+
+    _loadInterfaces();
   }
 
   @override
   void dispose() {
     _addressController.dispose();
-    _interfaceController.dispose();
     _commentController.dispose();
     super.dispose();
   }
 
+  Future<void> _loadInterfaces() async {
+    if (!mounted) return;
+    setState(() => _loadingInterfaces = true);
+
+    try {
+      final interfaces = await widget.api.getInterfaces();
+
+      final available = interfaces
+          .where((i) => i['disabled'] != 'true')
+          .map((i) => i['name'] ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _interfaces = available;
+        _loadingInterfaces = false;
+
+        if (_selectedInterface == null ||
+            _selectedInterface!.isEmpty) {
+          if (available.isNotEmpty) {
+            _selectedInterface = available.first;
+          }
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingInterfaces = false);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedInterface == null ||
+        _selectedInterface!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('يجب اختيار الواجهة'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() => _saving = true);
 
@@ -1920,13 +1966,13 @@ class _IpAddressDialogState extends State<_IpAddressDialog> {
         await widget.api.updateIpAddress(
           id: widget.existing!['.id'] ?? '',
           address: _addressController.text.trim(),
-          interface: _interfaceController.text.trim(),
+          interface: _selectedInterface!,
           comment: _commentController.text.trim(),
         );
       } else {
         await widget.api.addIpAddress(
           address: _addressController.text.trim(),
-          interface: _interfaceController.text.trim(),
+          interface: _selectedInterface!,
           comment: _commentController.text.trim(),
         );
       }
@@ -1937,7 +1983,10 @@ class _IpAddressDialogState extends State<_IpAddressDialog> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('فشل: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -1945,37 +1994,94 @@ class _IpAddressDialogState extends State<_IpAddressDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isEditing ? 'تعديل IP Address' : 'إضافة IP Address'),
+      title: Text(
+        _isEditing ? 'تعديل IP Address' : 'إضافة IP Address',
+      ),
       content: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ============== IP Address ==============
             TextFormField(
               controller: _addressController,
               decoration: const InputDecoration(
-                labelText: 'IP Address',
+                labelText: 'IP Address *',
                 hintText: '192.168.1.1/24',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lan),
               ),
-              validator: (v) => v == null || v.isEmpty ? 'مطلوب' : null,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) {
+                  return 'مطلوب';
+                }
+                if (!v.contains('/')) {
+                  return 'يجب أن يحتوي على /مثل: 192.168.1.1/24';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 10),
-            TextFormField(
-              controller: _interfaceController,
-              decoration: const InputDecoration(
-                labelText: 'Interface',
-                hintText: 'ether1',
-                border: OutlineInputBorder(),
+
+            // ============== Interface Dropdown ==============
+            if (_loadingInterfaces)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: LinearProgressIndicator(),
+              )
+            else if (_interfaces.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.red, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'لا توجد واجهات متاحة',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              DropdownButtonFormField<String>(
+                initialValue: _selectedInterface,
+                decoration: const InputDecoration(
+                  labelText: 'Interface *',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.cable),
+                ),
+                items: _interfaces.map((name) {
+                  return DropdownMenuItem<String>(
+                    value: name,
+                    child: Text(name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() => _selectedInterface = value);
+                },
+                validator: (v) =>
+                v == null || v.isEmpty ? 'مطلوب' : null,
               ),
-              validator: (v) => v == null || v.isEmpty ? 'مطلوب' : null,
-            ),
+
             const SizedBox(height: 10),
+
+            // ============== Comment ==============
             TextFormField(
               controller: _commentController,
               decoration: const InputDecoration(
                 labelText: 'ملاحظة',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.comment),
               ),
             ),
           ],
@@ -1987,7 +2093,7 @@ class _IpAddressDialogState extends State<_IpAddressDialog> {
           child: const Text('إلغاء'),
         ),
         FilledButton(
-          onPressed: _saving ? null : _save,
+          onPressed: (_saving || _loadingInterfaces) ? null : _save,
           child: _saving
               ? const SizedBox(
             width: 16,

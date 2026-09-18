@@ -825,8 +825,75 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
             ),
             const SizedBox(height: 8),
 
+            // ======================================================
+            // الصف الأول: إدارة الكروت + توليد + القوالب
+            // ======================================================
             Row(
               children: [
+                Expanded(
+                  child: _actionButton(
+                    icon: Icons.people,
+                    title: 'إدارة الكروت',
+                    color: Colors.blue,
+                    onPressed: _connected ? () => _openUsers() : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _actionButton(
+                    icon: Icons.auto_awesome,
+                    title: 'توليد الكروت',
+                    color: Colors.deepOrange,
+                    onPressed: _connected
+                        ? () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HotspotCardsHubPage(
+                            api: _api,
+                            host: _router['host'].toString(),
+                            username:
+                            _router['username'].toString(),
+                            password:
+                            _router['password'].toString(),
+                            port: int.tryParse(
+                              _router['port'].toString(),
+                            ) ??
+                                8728,
+                          ),
+                        ),
+                      );
+
+                      if (mounted) setState(() {});
+                    }
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // ======================================================
+            // الصف الثاني: القوالب + بروفايلات Hotspot
+            // ======================================================
+            Row(
+              children: [
+                Expanded(
+                  child: _actionButton(
+                    icon: Icons.dashboard_customize,
+                    title: 'القوالب',
+                    color: Colors.teal,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const TemplatesPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _actionButton(
                     icon: Icons.category,
@@ -835,18 +902,13 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
                     onPressed: _connected ? _openProfiles : null,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _actionButton(
-                    icon: Icons.people,
-                    title: 'مستخدمو Hotspot',
-                    color: Colors.blue,
-                    onPressed: _connected ? () => _openUsers() : null,
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 8),
+
+            // ======================================================
+            // الصف الثالث: المتصلون + طباعة الكروت
+            // ======================================================
             Row(
               children: [
                 Expanded(
@@ -861,20 +923,25 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
                 Expanded(
                   child: _actionButton(
                     icon: Icons.print,
-                    title: 'طباعة الكروت',
+                    title: 'كروتي المحفوظة',
                     color: Colors.orange,
-                    onPressed: _connected
-                        ? () {
-                      _showMessage(
-                        'افتح "توليد كروت" ثم "طباعة"',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SavedCardsPage(),
+                        ),
                       );
-                    }
-                        : null,
+                    },
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
+
+            // ======================================================
+            // الصف الرابع: إعدادات الراوتر
+            // ======================================================
             Row(
               children: [
                 Expanded(
@@ -889,7 +956,6 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
             ),
 
             const SizedBox(height: 20),
-
             // =========================================================
             // معلومات الراوتر
             // =========================================================
@@ -4222,6 +4288,248 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
     );
   }
 }
+// =============================================================================
+// Hotspot Cards Hub Page - شاشة وسيطة
+// =============================================================================
+
+class HotspotCardsHubPage extends StatelessWidget {
+  final MikroTikApi api;
+  final String host;
+  final String username;
+  final String password;
+  final int port;
+  final String? defaultProfile;
+
+  const HotspotCardsHubPage({
+    super.key,
+    required this.api,
+    required this.host,
+    required this.username,
+    required this.password,
+    required this.port,
+    this.defaultProfile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade100,
+      appBar: AppBar(
+        title: const Text('🌟 توليد الكروت'),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // ============================================
+          // العنوان الترحيبي
+          // ============================================
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade400, Colors.blue.shade700],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 40,
+                ),
+                SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'اختر نوع التوليد',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'كرت واحد أو مجموعة كروت',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ============================================
+          // الخيار 1: كرت واحد
+          // ============================================
+          _buildOptionCard(
+            context,
+            icon: Icons.person_add,
+            title: 'كرت واحد',
+            subtitle: 'إضافة كرت واحد ببيانات مخصصة',
+            color: Colors.blue,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddHotspotUserPage(
+                    api: api,
+                    host: host,
+                    username: username,
+                    password: password,
+                    port: port,
+                    defaultProfile: defaultProfile,
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          // ============================================
+          // الخيار 2: مجموعة كروت
+          // ============================================
+          _buildOptionCard(
+            context,
+            icon: Icons.library_add,
+            title: 'مجموعة كروت',
+            subtitle: 'توليد 10، 100، 1000 كرت دفعة واحدة',
+            color: Colors.deepOrange,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => GenerateCardsPage(
+                    api: api,
+                    host: host,
+                    username: username,
+                    password: password,
+                    port: port,
+                    defaultProfile: defaultProfile,
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // ============================================
+          // زر عرض المستخدمين
+          // ============================================
+          _buildOptionCard(
+            context,
+            icon: Icons.people,
+            title: 'عرض الكروت',
+            subtitle: 'عرض وإدارة الكروت الموجودة',
+            color: Colors.green,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HotspotUsersPage(
+                    api: api,
+                    host: host,
+                    username: username,
+                    password: password,
+                    port: port,
+                    profile: defaultProfile,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOptionCard(
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        required String subtitle,
+        required Color color,
+        required VoidCallback onTap,
+      }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: color.withValues(alpha: 0.2),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  size: 28,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_left,
+                color: color.withValues(alpha: 0.6),
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // =============================================================================
 // Router Settings Hub
 // =============================================================================
