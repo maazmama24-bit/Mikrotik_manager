@@ -2710,8 +2710,8 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
   @override
   Widget build(BuildContext context) {
     final title = widget.profile == null
-        ? 'مستخدمو Hotspot'
-        : 'مستخدمو: ${widget.profile}';
+        ? '👥 المستخدمون'
+        : '👥 ${widget.profile}';
 
     return Scaffold(
       appBar: AppBar(
@@ -3005,64 +3005,129 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
                   final disabled = user['disabled'] == 'yes' ||
                       user['disabled'] == 'true';
 
+                  final isDisabled = disabled;
+                  final cardColor = isDisabled
+                      ? Colors.red.shade50
+                      : Colors.blue.shade50;
+                  final iconColor =
+                  isDisabled ? Colors.red : Colors.blue;
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
+                    elevation: 2,
                     child: ExpansionTile(
-                      leading: CircleAvatar(
+                      tilePadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      childrenPadding: EdgeInsets.zero,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          shape: BoxShape.circle,
+                        ),
                         child: Icon(
-                          disabled ? Icons.block : Icons.person,
+                          isDisabled ? Icons.block : Icons.person,
+                          color: iconColor,
+                          size: 22,
                         ),
                       ),
-                      title: Text(
-                        username,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Text('Profile: $profile'),
-                      children: [
-                        _userDetailRow('Username', username),
-                        _userDetailRow('Password', password),
-                        _userDetailRow('Profile', profile),
-                        _userDetailRow('Limit Bytes', limitBytes),
-                        _userDetailRow('Limit Uptime', limitUptime),
-                        _userDetailRow(
-                          'Disabled',
-                          disabled ? 'نعم' : 'لا',
-                        ),
-                        _userDetailRow(
-                          'Comment',
-                          user['comment'] ?? '-',
-                        ),
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              username,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    _editUser(user);
-                                  },
-                                  icon: const Icon(Icons.edit),
-                                  label: const Text('تعديل'),
+                          if (isDisabled)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'معطّل',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: FilledButton.icon(
-                                  onPressed: () {
-                                    _deleteUser(user);
-                                  },
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: Colors.red,
+                            ),
+                        ],
+                      ),
+                      subtitle: Row(
+                        children: [
+                          Icon(
+                            Icons.category,
+                            size: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            profile,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      children: [
+                        const Divider(height: 1),
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _userDetailRow('Username', username),
+                              _userDetailRow('Password', password),
+                              _userDetailRow('Profile', profile),
+                              _userDetailRow('Limit Bytes', limitBytes),
+                              _userDetailRow('Limit Uptime', limitUptime),
+                              _userDetailRow(
+                                'Disabled',
+                                disabled ? 'نعم' : 'لا',
+                              ),
+                              _userDetailRow(
+                                'Comment',
+                                user['comment'] ?? '-',
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () {
+                                        _editUser(user);
+                                      },
+                                      icon: const Icon(Icons.edit, size: 18),
+                                      label: const Text('تعديل'),
+                                    ),
                                   ),
-                                  icon: const Icon(Icons.delete),
-                                  label: const Text('حذف'),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: FilledButton.icon(
+                                      onPressed: () {
+                                        _deleteUser(user);
+                                      },
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                      ),
+                                      icon: const Icon(Icons.delete, size: 18),
+                                      label: const Text('حذف'),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
