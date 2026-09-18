@@ -4,7 +4,6 @@ import 'mikrotik_api.dart';
 // =============================================================================
 // MikroTik Users Page - مستخدمو MikroTik
 // =============================================================================
-
 class MikrotikUsersPage extends StatefulWidget {
   final MikroTikApi api;
 
@@ -132,141 +131,6 @@ class _MikrotikUsersPageState extends State<MikrotikUsersPage> {
       );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('👤 مستخدمو MikroTik'),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _loadUsers,
-            icon: const Icon(Icons.refresh),
-          ),
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AddMikrotikUserPage(api: _api),
-                ),
-              ).then((_) => _loadUsers());
-            },
-            tooltip: 'إضافة مستخدم',
-            icon: const Icon(Icons.add_circle_outline),
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? _buildError()
-          : _users.isEmpty
-          ? const Center(child: Text('لا يوجد مستخدمون'))
-          : ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _users.length,
-        itemBuilder: (context, index) {
-          final user = _users[index];
-          final name = user['name'] ?? '';
-          final group = user['group'] ?? '';
-          final disabled = user['disabled'] == 'true' ||
-              user['disabled'] == 'yes';
-          final comment = user['comment'] ?? '';
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-              leading: CircleAvatar(
-                child: Icon(
-                  disabled ? Icons.block : Icons.person,
-                  color: name == 'admin' ? Colors.red : null,
-                ),
-              ),
-              title: Row(
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  if (name == 'admin')
-                    const Padding(
-                      padding: EdgeInsets.only(right: 6),
-                      child: Icon(
-                        Icons.star,
-                        color: Colors.amber,
-                        size: 16,
-                      ),
-                    ),
-                ],
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('المجموعة: $group'),
-                  if (comment.isNotEmpty)
-                    Text(
-                      comment,
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                ],
-              ),
-              trailing: PopupMenuButton<String>(
-                onSelected: (value) {
-                  switch (value) {
-                    case 'password':
-                      _openChangePassword(user);
-                      break;
-                    case 'delete':
-                      _deleteUser(user);
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'password',
-                    child: Row(
-                      children: [
-                        Icon(Icons.key, size: 20),
-                        SizedBox(width: 8),
-                        Text('تغيير كلمة المرور'),
-                      ],
-                    ),
-                  ),
-                  if (name != 'admin')
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete,
-                            size: 20,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'حذف',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-              onTap: () => _openChangePassword(user),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Widget _buildError() {
     return Center(
       child: Padding(
@@ -288,8 +152,263 @@ class _MikrotikUsersPageState extends State<MikrotikUsersPage> {
       ),
     );
   }
-}
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade100,
+      appBar: AppBar(
+        title: const Text('👤 المستخدمون'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'تحديث',
+            onPressed: _loading ? null : _loadUsers,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? _buildError()
+          : _users.isEmpty
+          ? const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.person_off,
+              size: 60,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'لا يوجد مستخدمون',
+              style: TextStyle(fontSize: 16),
+            ),
+          ],
+        ),
+      )
+          : ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: _users.length,
+        itemBuilder: (context, index) {
+          final user = _users[index];
+          return _buildUserCard(user);
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddMikrotikUserPage(api: _api),
+            ),
+          ).then((_) => _loadUsers());
+        },
+        icon: const Icon(Icons.person_add),
+        label: const Text('إضافة مستخدم'),
+      ),
+    );
+  }
+
+  Widget _buildUserCard(Map<String, String> user) {
+    final name = user['name'] ?? '';
+    final group = user['group'] ?? '';
+    final disabled =
+        user['disabled'] == 'true' || user['disabled'] == 'yes';
+    final comment = user['comment'] ?? '';
+    final isAdmin = name == 'admin';
+
+    final cardColor = disabled
+        ? Colors.red.shade50
+        : isAdmin
+        ? Colors.amber.shade50
+        : Colors.blue.shade50;
+
+    final iconColor = disabled
+        ? Colors.red
+        : isAdmin
+        ? Colors.amber.shade800
+        : Colors.blue;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: iconColor.withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: iconColor.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _openChangePassword(user),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // الأيقونة
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    disabled
+                        ? Icons.block
+                        : isAdmin
+                        ? Icons.star
+                        : Icons.person,
+                    color: iconColor,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // المعلومات
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (isAdmin)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 4),
+                              child: Icon(
+                                Icons.verified,
+                                color: Colors.amber,
+                                size: 14,
+                              ),
+                            ),
+                          if (disabled)
+                            Container(
+                              margin: const EdgeInsets.only(right: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'معطّل',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.group,
+                            size: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            group,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (comment.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          comment,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // القائمة
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'password':
+                        _openChangePassword(user);
+                        break;
+                      case 'delete':
+                        _deleteUser(user);
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'password',
+                      child: Row(
+                        children: [
+                          Icon(Icons.key, size: 20, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text('تغيير كلمة المرور'),
+                        ],
+                      ),
+                    ),
+                    if (!isAdmin)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete,
+                              size: 20,
+                              color: Colors.red,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'حذف',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 // =============================================================================
 // Change Password Page - تغيير كلمة المرور
 // =============================================================================
