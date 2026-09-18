@@ -37,6 +37,7 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _passwordController;
   late final TextEditingController _commentController;
+  late final TextEditingController _customPasswordController;
   late final TextEditingController _limitUptimeController;
   late final TextEditingController _limitGbController;
 
@@ -74,6 +75,7 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
     _nameController = TextEditingController();
     _passwordController = TextEditingController();
     _commentController = TextEditingController();
+    _customPasswordController = TextEditingController();
     _limitUptimeController = TextEditingController();
     _limitGbController = TextEditingController();
     _selectedProfile = widget.defaultProfile;
@@ -85,6 +87,7 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
     _nameController.dispose();
     _passwordController.dispose();
     _commentController.dispose();
+    _customPasswordController.dispose();
     _limitUptimeController.dispose();
     _limitGbController.dispose();
     super.dispose();
@@ -296,6 +299,8 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
       child: child,
     );
   }
+
+
 
   Widget _field({
     required String label,
@@ -846,6 +851,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
   late final TextEditingController _limitUptimeController;
   late final TextEditingController _limitGbController;
   late final TextEditingController _commentController;
+  late final TextEditingController _customPasswordController;
 
   List<Map<String, String>> _profiles = [];
   String? _selectedProfile;
@@ -873,6 +879,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     _limitUptimeController = TextEditingController();
     _limitGbController = TextEditingController();
     _commentController = TextEditingController();
+    _customPasswordController = TextEditingController();
     _selectedProfile = widget.defaultProfile;
     _loadProfiles();
   }
@@ -886,6 +893,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     _limitUptimeController.dispose();
     _limitGbController.dispose();
     _commentController.dispose();
+    _customPasswordController.dispose();
     super.dispose();
   }
 
@@ -944,6 +952,9 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
           break;
         case 'random':
           password = _generateRandomPassword(name);
+          break;
+        case 'custom':
+          password = _customPasswordController.text.trim();
           break;
         case 'empty':
         default:
@@ -1146,6 +1157,64 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
         ),
       );
   }
+  Widget _passwordModeChip({
+    required String label,
+    required String mode,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isSelected = _passwordMode == mode;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: _generating
+            ? null
+            : () {
+          setState(() {
+            _passwordMode = mode;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(
+            vertical: 10,
+            horizontal: 4,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.15)
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? color : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected ? color : Colors.grey,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight:
+                  isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? color : Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _field({
     required String label,
     required TextEditingController controller,
@@ -1294,42 +1363,110 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             ),
             const SizedBox(height: 8),
 
-            RadioListTile<String>(
-              title: const Text('نفس اسم المستخدم'),
-              value: 'same',
-              groupValue: _passwordMode,
-              onChanged: _generating
-                  ? null
-                  : (value) {
-                if (value != null) {
-                  setState(() => _passwordMode = value);
-                }
-              },
+            Row(
+              children: [
+                _passwordModeChip(
+                  label: 'فارغة',
+                  mode: 'empty',
+                  icon: Icons.lock_open,
+                  color: Colors.grey,
+                ),
+                const SizedBox(width: 6),
+                _passwordModeChip(
+                  label: 'مثل الاسم',
+                  mode: 'same',
+                  icon: Icons.content_copy,
+                  color: Colors.blue,
+                ),
+                const SizedBox(width: 6),
+                _passwordModeChip(
+                  label: 'عشوائية',
+                  mode: 'random',
+                  icon: Icons.casino,
+                  color: Colors.purple,
+                ),
+                const SizedBox(width: 6),
+                _passwordModeChip(
+                  label: 'موحّدة',
+                  mode: 'custom',
+                  icon: Icons.edit,
+                  color: Colors.orange,
+                ),
+              ],
             ),
-            RadioListTile<String>(
-              title: const Text('فارغة (اسم المستخدم تلقائياً)'),
-              value: 'empty',
-              groupValue: _passwordMode,
-              onChanged: _generating
-                  ? null
-                  : (value) {
-                if (value != null) {
-                  setState(() => _passwordMode = value);
-                }
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('عشوائية'),
-              value: 'random',
-              groupValue: _passwordMode,
-              onChanged: _generating
-                  ? null
-                  : (value) {
-                if (value != null) {
-                  setState(() => _passwordMode = value);
-                }
-              },
-            ),
+
+            const SizedBox(height: 10),
+
+            if (_passwordMode == 'custom')
+              _field(
+                label: 'كلمة المرور الموحّدة',
+                controller: _customPasswordController,
+                hint: 'نفس كلمة المرور لكل الكروت',
+                enabled: !_generating,
+              )
+            else if (_passwordMode == 'same')
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.blue, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'كل كرت ستكون كلمة مروره نفس اسم المستخدم',
+                        style: TextStyle(fontSize: 12, color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (_passwordMode == 'random')
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.purple.shade200),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.purple, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'كل كرت ستكون كلمة مروره عشوائية',
+                          style: TextStyle(fontSize: 12, color: Colors.purple),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.grey, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'الكروت ستكون بدون كلمة مرور',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
             const SizedBox(height: 20),
 
