@@ -11,6 +11,7 @@ import 'dhcp_dns_page.dart';
 import 'interfaces_page.dart';
 import 'vpn_page.dart';
 import 'hotspot_setup_page.dart';
+import 'firewall_page.dart';
 
 void main() {
   runApp(const MikrotikManagerApp());
@@ -1169,8 +1170,12 @@ class _HotspotProfilesPageState extends State<HotspotProfilesPage> {
 
   List<Map<String, String>> _profiles = [];
 
-  bool _loading = true;
+  // إحصائيات لكل بروفايل: name -> { count, online }
+  final Map<String, int> _profileCardCount = {};
+  final Map<String, int> _profileOnlineCount = {};
 
+  bool _loading = true;
+  bool _loadingStats = false;
   String? _error;
 
   @override
@@ -1199,6 +1204,9 @@ class _HotspotProfilesPageState extends State<HotspotProfilesPage> {
         _profiles = profiles;
         _loading = false;
       });
+
+      // تحميل الإحصائيات في الخلفية
+      _loadStatistics();
     } catch (e) {
       if (!mounted) return;
 
@@ -1209,10 +1217,62 @@ class _HotspotProfilesPageState extends State<HotspotProfilesPage> {
     }
   }
 
-  String _value(
-      Map<String, String> profile,
-      String key,
-      ) {
+  /// جلب عدد الكروت والمتصلين لكل بروفايل.
+  Future<void> _loadStatistics() async {
+    if (_loadingStats || _profiles.isEmpty) return;
+
+    setState(() => _loadingStats = true);
+
+    try {
+      // جلب جميع الكروت
+      final allUsers = await _api.getAllHotspotUsers();
+
+      if (!mounted) return;
+
+      // جلب المتصلين
+      final active = await _api.getConnectedUsers();
+
+      if (!mounted) return;
+
+      // حساب العدد لكل بروفايل
+      final counts = <String, int>{};
+      for (final user in allUsers) {
+        final p = user['profile'] ?? '';
+        counts[p] = (counts[p] ?? 0) + 1;
+      }
+
+      final onlineCounts = <String, int>{};
+      for (final user in active) {
+        // نبحث عن البروفايل من الكرت الأصلي
+        final name = user['user'] ?? user['name'] ?? '';
+
+        for (final u in allUsers) {
+          if (u['name'] == name) {
+            final p = u['profile'] ?? '';
+            onlineCounts[p] = (onlineCounts[p] ?? 0) + 1;
+            break;
+          }
+        }
+      }
+
+      setState(() {
+        _profileCardCount
+          ..clear()
+          ..addAll(counts);
+
+        _profileOnlineCount
+          ..clear()
+          ..addAll(onlineCounts);
+
+        _loadingStats = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingStats = false);
+    }
+  }
+
+  String _value(Map<String, String> profile, String key) {
     final value = profile[key];
 
     if (value == null || value.isEmpty) {
@@ -1222,9 +1282,8 @@ class _HotspotProfilesPageState extends State<HotspotProfilesPage> {
     return value;
   }
 
-  Future<void> _openProfile(
-      Map<String, String> profile,
-      ) async {
+
+  Future<void> _openProfile(Map<String, String> profile) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -1239,19 +1298,13 @@ class _HotspotProfilesPageState extends State<HotspotProfilesPage> {
       ),
     );
 
-    if (mounted) {
-      _loadProfiles();
-    }
+    if (mounted) _loadProfiles();
   }
 
-  Future<void> _openProfileUsers(
-      Map<String, String> profile,
-      ) async {
+  Future<void> _openProfileUsers(Map<String, String> profile) async {
     final profileName = profile['name']?.trim() ?? '';
 
-    if (profileName.isEmpty) {
-      return;
-    }
+    if (profileName.isEmpty) return;
 
     await Navigator.push(
       context,
@@ -1266,41 +1319,135 @@ class _HotspotProfilesPageState extends State<HotspotProfilesPage> {
         ),
       ),
     );
+
+    if (mounted) _loadStatistics();
+  }
+
+  Future<void> _deleteProfile(Map<String, String> profile) async {
+    final id = profile['.id'];
+    final name = profile['name'] ?? '';
+
+    if (id == null) return;
+
+    if (name == 'default') {
+      _showMessage('لا يمكن حذف default', isError: true);
+      return;
+    }
+
+    final cardCount = _profileCardCount[name] ?? 0;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف البروفايل'),
+        content: Text(
+          'هل تريد حذف البروفايل "$name"؟\n\n'
+              '${cardCount > 0 ? "⚠️ يحتوي على $cardCount كرت!\n\n" : ""}'
+              'لا يمكن التراجع.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _api.deleteHotspotProfile(id);
+      if (!mounted) return;
+      _showMessage('تم حذف البروفايل ✅');
+      await _loadProfiles();
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('فشل: $e', isError: true);
+    }
+  }
+
+  Future<void> _addProfile() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddHotspotProfilePage(api: _api),
+      ),
+    );
+
+    if (result == true) {
+      await _loadProfiles();
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? Colors.red : null,
+        ),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hotspot Profiles'),
+        title: Text(
+          'Hotspot Profiles (${_profiles.length})',
+        ),
         actions: [
+          if (_loadingStats)
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           IconButton(
+            tooltip: 'تحديث',
             onPressed: _loading ? null : _loadProfiles,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
-      body: _loading
-          ? const Center(
-        child: CircularProgressIndicator(),
-      )
-          : _error != null
-          ? Center(
+      body: _buildBody(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addProfile,
+        icon: const Icon(Icons.add),
+        label: const Text('إضافة بروفايل'),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.error_outline,
-                size: 60,
-                color: Colors.red,
-              ),
+              const Icon(Icons.error_outline, size: 60, color: Colors.red),
               const SizedBox(height: 15),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-              ),
+              Text(_error!, textAlign: TextAlign.center),
               const SizedBox(height: 15),
               FilledButton.icon(
                 onPressed: _loadProfiles,
@@ -1310,116 +1457,290 @@ class _HotspotProfilesPageState extends State<HotspotProfilesPage> {
             ],
           ),
         ),
-      )
-          : _profiles.isEmpty
-          ? const Center(
-        child: Text(
-          'لا توجد Hotspot Profiles',
-          style: TextStyle(fontSize: 18),
+      );
+    }
+
+    if (_profiles.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.category, size: 60, color: Colors.grey),
+            SizedBox(height: 12),
+            Text(
+              'لا توجد Hotspot Profiles',
+              style: TextStyle(fontSize: 18),
+            ),
+          ],
         ),
-      )
-          : ListView.builder(
-        padding: const EdgeInsets.all(12),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadProfiles,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(10),
         itemCount: _profiles.length,
         itemBuilder: (context, index) {
           final profile = _profiles[index];
-
-          final name = _value(profile, 'name');
-          final addressPool =
-          _value(profile, 'address-pool');
-          final rateLimit =
-          _value(profile, 'rate-limit');
-          final sessionTimeout =
-          _value(profile, 'session-timeout');
-          final idleTimeout =
-          _value(profile, 'idle-timeout');
-          final sharedUsers =
-          _value(profile, 'shared-users');
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                _openProfile(profile);
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const CircleAvatar(
-                          child: Icon(Icons.category),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            name,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight:
-                              FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip:
-                          'مستخدمو هذا البروفايل',
-                          onPressed: () {
-                            _openProfileUsers(profile);
-                          },
-                          icon: const Icon(Icons.people),
-                        ),
-                        const Icon(Icons.chevron_right),
-                      ],
-                    ),
-                    const Divider(),
-                    _profileDetailRow(
-                        'Address Pool', addressPool),
-                    _profileDetailRow(
-                        'Rate Limit', rateLimit),
-                    _profileDetailRow(
-                        'Session Timeout', sessionTimeout),
-                    _profileDetailRow(
-                        'Idle Timeout', idleTimeout),
-                    _profileDetailRow(
-                        'Shared Users', sharedUsers),
-                  ],
-                ),
-              ),
-            ),
-          );
+          return _buildProfileCard(profile);
         },
       ),
     );
   }
 
-  Widget _profileDetailRow(
-      String title,
-      String value,
-      ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 145,
-            child: Text(
-              title,
-              style: const TextStyle(color: Colors.grey),
-            ),
+  Widget _buildProfileCard(Map<String, String> profile) {
+    final name = profile['name'] ?? '';
+    final addressPool = _value(profile, 'address-pool');
+    final rateLimit = _value(profile, 'rate-limit');
+    final sessionTimeout = _value(profile, 'session-timeout');
+    final idleTimeout = _value(profile, 'idle-timeout');
+    final sharedUsers = _value(profile, 'shared-users');
+
+    final cardCount = _profileCardCount[name] ?? 0;
+    final onlineCount = _profileOnlineCount[name] ?? 0;
+    final isDefault = name == 'default';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openProfile(profile),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ========== الرأس ==========
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isDefault
+                          ? Colors.orange.shade100
+                          : Colors.blue.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isDefault ? Icons.star : Icons.category,
+                      color: isDefault ? Colors.orange : Colors.blue,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isDefault)
+                              const Padding(
+                                padding: EdgeInsets.only(right: 4),
+                                child: Icon(
+                                  Icons.verified,
+                                  size: 14,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Pool: $addressPool',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // ========== الإحصائيات ==========
+              Row(
+                children: [
+                  _statChip(
+                    icon: Icons.credit_card,
+                    value: '$cardCount',
+                    label: 'كرت',
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(width: 6),
+                  _statChip(
+                    icon: Icons.wifi,
+                    value: '$onlineCount',
+                    label: 'متصل',
+                    color: onlineCount > 0 ? Colors.green : Colors.grey,
+                  ),
+                  const SizedBox(width: 6),
+                  _statChip(
+                    icon: Icons.speed,
+                    value: _shortRate(rateLimit),
+                    label: 'سرعة',
+                    color: Colors.purple,
+                  ),
+                ],
+              ),
+
+              const Divider(height: 14),
+
+              // ========== التفاصيل المختصرة ==========
+              Row(
+                children: [
+                  Expanded(
+                    child: _miniRow(
+                      Icons.timer,
+                      'Session',
+                      sessionTimeout,
+                    ),
+                  ),
+                  Expanded(
+                    child: _miniRow(
+                      Icons.hourglass_empty,
+                      'Idle',
+                      idleTimeout,
+                    ),
+                  ),
+                  Expanded(
+                    child: _miniRow(
+                      Icons.people,
+                      'Shared',
+                      sharedUsers,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              // ========== الأزرار ===========
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openProfileUsers(profile),
+                      icon: const Icon(Icons.people, size: 16),
+                      label: const Text(
+                        'الكروت',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _openProfile(profile),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                      ),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text(
+                        'تعديل',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  if (!isDefault) ...[
+                    const SizedBox(width: 6),
+                    IconButton(
+                      onPressed: () => _deleteProfile(profile),
+                      tooltip: 'حذف',
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
+        ),
       ),
+    );
+  }
+
+  String _shortRate(String raw) {
+    if (raw == '-' || raw.isEmpty) return '-';
+    final parts = raw.split('/');
+    if (parts.isNotEmpty) return parts[0];
+    return raw;
+  }
+
+  Widget _statChip({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _miniRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 12, color: Colors.grey),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 9, color: Colors.grey),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -3745,9 +4066,11 @@ class RouterSettingsHubPage extends StatelessWidget {
             title: 'Firewall و NAT',
             subtitle: 'قواعد الجدار الناري وترجمة العناوين',
             onTap: () {
-              _showComingSoon(
+              Navigator.push(
                 context,
-                'Firewall و NAT',
+                MaterialPageRoute(
+                  builder: (_) => FirewallPage(api: api),
+                ),
               );
             },
           ),
@@ -4490,6 +4813,263 @@ class _RouterSettingsPageState extends State<RouterSettingsPage> {
                       style: TextStyle(color: Colors.grey),
                     ),
                   ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Add Hotspot Profile Page
+// =============================================================================
+
+class AddHotspotProfilePage extends StatefulWidget {
+  final MikroTikApi api;
+
+  const AddHotspotProfilePage({
+    super.key,
+    required this.api,
+  });
+
+  @override
+  State<AddHotspotProfilePage> createState() => _AddHotspotProfilePageState();
+}
+
+class _AddHotspotProfilePageState extends State<AddHotspotProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+
+  final _nameController = TextEditingController();
+  final _sharedUsersController = TextEditingController(text: '1');
+  final _rateLimitController = TextEditingController();
+  final _sessionTimeoutController = TextEditingController();
+  final _idleTimeoutController = TextEditingController();
+  final _keepaliveTimeoutController = TextEditingController();
+
+  List<Map<String, String>> _pools = [];
+  String? _selectedPool;
+  bool _loadingPools = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPools();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _sharedUsersController.dispose();
+    _rateLimitController.dispose();
+    _sessionTimeoutController.dispose();
+    _idleTimeoutController.dispose();
+    _keepaliveTimeoutController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPools() async {
+    if (!mounted) return;
+    setState(() => _loadingPools = true);
+
+    try {
+      final pools = await widget.api.getIpPools();
+      if (!mounted) return;
+      setState(() {
+        _pools = pools;
+        _loadingPools = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingPools = false);
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _saving = true);
+
+    try {
+      final id = await widget.api.addHotspotProfile(
+        name: _nameController.text.trim(),
+        addressPool: _selectedPool,
+        sharedUsers: _sharedUsersController.text.trim(),
+        rateLimit: _rateLimitController.text.trim(),
+        sessionTimeout: _sessionTimeoutController.text.trim(),
+        idleTimeout: _idleTimeoutController.text.trim(),
+        keepaliveTimeout: _keepaliveTimeoutController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (id == null || id.isEmpty) {
+        setState(() => _saving = false);
+        _showMessage('فشل الإنشاء', isError: true);
+        return;
+      }
+
+      _showMessage('تم إنشاء البروفايل ✅');
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _showMessage('فشل: $e', isError: true);
+    }
+  }
+
+  void _showMessage(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red : null,
+      ));
+  }
+
+  Widget _field({
+    required String label,
+    required TextEditingController controller,
+    String? hint,
+    String? helperText,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          helperText: helperText,
+          border: const OutlineInputBorder(),
+        ),
+        validator: validator,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('➕ إضافة Hotspot Profile'),
+        actions: [
+          IconButton(
+            onPressed: _saving ? null : _save,
+            icon: const Icon(Icons.save),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Text(
+              '📝 المعلومات الأساسية',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+
+            _field(
+              label: 'اسم البروفايل *',
+              controller: _nameController,
+              hint: 'مثال: باقة شهرية',
+              validator: (v) =>
+              v == null || v.trim().isEmpty ? 'مطلوب' : null,
+            ),
+
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _loadingPools
+                  ? const LinearProgressIndicator()
+                  : DropdownButtonFormField<String>(
+                initialValue: _selectedPool,
+                decoration: const InputDecoration(
+                  labelText: 'IP Pool',
+                  border: OutlineInputBorder(),
+                  helperText: 'اتركه فارغاً للاستخدام الافتراضي',
+                ),
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('بدون'),
+                  ),
+                  ..._pools.map((pool) {
+                    final name = pool['name'] ?? '';
+                    return DropdownMenuItem<String>(
+                      value: name,
+                      child: Text(name),
+                    );
+                  }),
+                ],
+                onChanged: (v) => setState(() => _selectedPool = v),
+              ),
+            ),
+
+            _field(
+              label: 'Shared Users',
+              controller: _sharedUsersController,
+              hint: '1',
+              helperText: 'عدد الأجهزة المسموحة لكل كرت',
+            ),
+
+            const SizedBox(height: 20),
+
+            const Text(
+              '⏱️ 📊 القيود',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+
+            _field(
+              label: 'Rate Limit',
+              controller: _rateLimitController,
+              hint: 'مثال: 2M/2M',
+              helperText: 'تحميل/رفع',
+            ),
+
+            _field(
+              label: 'Session Timeout',
+              controller: _sessionTimeoutController,
+              hint: 'مثال: 1h، 30m، 1d',
+            ),
+
+            _field(
+              label: 'Idle Timeout',
+              controller: _idleTimeoutController,
+              hint: 'مثال: 5m',
+            ),
+
+            _field(
+              label: 'Keepalive Timeout',
+              controller: _keepaliveTimeoutController,
+              hint: 'مثال: 2m',
+            ),
+
+            const SizedBox(height: 20),
+
+            SizedBox(
+              height: 54,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                    : const Icon(Icons.save),
+                label: Text(
+                  _saving ? 'جاري الإنشاء...' : '💾 إنشاء البروفايل',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
