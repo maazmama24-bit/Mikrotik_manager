@@ -191,12 +191,22 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
           break;
       }
 
+      // تحويل GB إلى Bytes
+      final gbText = _limitGbController.text.trim();
+      String limitBytes = '';
+      if (gbText.isNotEmpty) {
+        final gb = double.tryParse(gbText);
+        if (gb != null && gb > 0) {
+          limitBytes = (gb * 1024 * 1024 * 1024).round().toString();
+        }
+      }
+
       final id = await _api.addHotspotUser(
         name: name,
         password: finalPassword,
         profile: _selectedProfile!,
         limitUptime: _limitUptimeController.text.trim(),
-        limitBytesTotal: _limitGbController.text.trim(),
+        limitBytesTotal: limitBytes,
         comment: _commentController.text.trim(),
       );
 
@@ -746,10 +756,12 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
                   ),
                   const SizedBox(height: 12),
                   _field(
-                    label: 'بيانات مخصصة (بالبايت)',
+                    label: 'بيانات مخصصة (بـ GB)',
                     controller: _limitGbController,
-                    hint: 'مثال: 1073741824 = 1GB',
-                    keyboardType: TextInputType.number,
+                    hint: 'مثال: 2 = 2 جيجا، 0.5 = 500 ميجا',
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     prefixIcon: const Icon(Icons.storage, size: 18),
                   ),
                 ],
