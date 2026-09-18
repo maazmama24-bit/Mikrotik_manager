@@ -988,42 +988,7 @@ class MikroTikApi {
       return [];
     }
 
-    try {
-      final findResult = await _find(
-        '/ip/hotspot/user/find',
-        values: {
-          '?name': name,
-        },
-      );
-
-      final ids = findResult
-          .map(
-            (item) => item['ret'] ?? item['.id'] ?? '',
-      )
-          .map((id) => id.trim())
-          .where((id) => id.isNotEmpty)
-          .toSet()
-          .toList();
-
-      if (ids.isNotEmpty) {
-        final users = <Map<String, String>>[];
-
-        for (final id in ids) {
-          final user = await getHotspotUserById(id);
-
-          if (user != null) {
-            users.add(user);
-          }
-        }
-
-        if (users.isNotEmpty) {
-          return users;
-        }
-      }
-    } catch (e) {
-      lastError = e.toString();
-    }
-
+    // 1) بحث دقيق (exact match)
     try {
       final result = await _print(
         '/ip/hotspot/user/print',
@@ -1040,9 +1005,42 @@ class MikroTikApi {
       lastError = e.toString();
     }
 
+    // 2) بحث جزئي (contains) باستخدام regex
+    try {
+      final result = await _print(
+        '/ip/hotspot/user/print',
+        properties: _hotspotUserProperties,
+        queries: {
+          '?name': '~$name',
+        },
+      );
+
+      if (result.isNotEmpty) {
+        return result;
+      }
+    } catch (e) {
+      lastError = e.toString();
+    }
+
+    // 3) بحث بدون حساسية لحالة الأحرف (lowercase)
+    try {
+      final result = await _print(
+        '/ip/hotspot/user/print',
+        properties: _hotspotUserProperties,
+        queries: {
+          '?name': '~${name.toLowerCase()}',
+        },
+      );
+
+      if (result.isNotEmpty) {
+        return result;
+      }
+    } catch (e) {
+      lastError = e.toString();
+    }
+
     return [];
   }
-
   Future<List<Map<String, String>>> _searchHotspotUsersByProfile(
       String profile,
       ) async {

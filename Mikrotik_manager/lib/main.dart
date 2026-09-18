@@ -2210,40 +2210,60 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
       return;
     }
 
+    // إذا لم يتم تحميل الكروت — نجلّبها تلقائياً
+    if (_users.isEmpty) {
+      setState(() => _loading = true);
+
+      try {
+        final all = await _api.getAllHotspotUsers(
+          profile: _selectedProfile,
+        );
+
+        if (!mounted) return;
+
+        setState(() {
+          _users = List<Map<String, String>>.from(all);
+          _allLoaded = true;
+          _loading = false;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        _showMessage('فشل جلب الكروت: $e', isError: true);
+        return;
+      }
+    }
+
+    // البحث المحلي
+    final query = search.toLowerCase();
+
+    final filtered = _users.where((user) {
+      final name = (user['name'] ?? '').toLowerCase();
+      final password = (user['password'] ?? '').toLowerCase();
+      final comment = (user['comment'] ?? '').toLowerCase();
+      final profile = (user['profile'] ?? '').toLowerCase();
+
+      return name.contains(query) ||
+          password.contains(query) ||
+          comment.contains(query) ||
+          profile.contains(query);
+    }).toList();
+
+    if (!mounted) return;
+
+    if (filtered.isEmpty) {
+      _showMessage(
+        'لم يتم العثور على نتائج لـ "$search"',
+        isError: true,
+      );
+      return;
+    }
+
     setState(() {
-      _loading = true;
-      _error = null;
-      _allLoaded = false;
+      _users = filtered;
     });
 
-    try {
-      final users = await _api.getHotspotUsers(
-        username: search,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _users = List<Map<String, String>>.from(users);
-        _sortUsers();
-        _loading = false;
-      });
-
-      if (_users.isEmpty) {
-        _showMessage(
-          'لم يتم العثور على الكرت "$search".',
-          isError: true,
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _users = [];
-        _loading = false;
-        _error = e.toString();
-      });
-    }
+    _showMessage('تم العثور على ${filtered.length} كرت ✅');
   }
 
   Future<void> _loadByProfile() async {
