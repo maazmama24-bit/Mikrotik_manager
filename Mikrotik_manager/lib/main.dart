@@ -2755,182 +2755,203 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(10),
+          Container(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+            color: Colors.grey.shade50,
             child: Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _searchType,
-                        decoration: const InputDecoration(
-                          labelText: 'نوع البحث',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'name',
-                            child: Text('اسم المستخدم'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'number',
-                            child: Text('رقم الكرت'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-
-                          setState(() {
-                            _searchType = value;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _sortBy,
-                        decoration: const InputDecoration(
-                          labelText: 'الفرز',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'name',
-                            child: Text('حسب الاسم'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'number',
-                            child: Text('حسب الرقم'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'profile',
-                            child: Text('حسب البروفايل'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'duration',
-                            child: Text('حسب المدة'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-
-                          _changeSort(value);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (widget.profile != null)
-                  DropdownButtonFormField<String?>(
-                    initialValue: _selectedProfile,
-                    decoration: const InputDecoration(
-                      labelText: 'البروفايل',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text('كل البروفايلات'),
-                      ),
-                      DropdownMenuItem<String?>(
-                        value: widget.profile,
-                        child: Text(widget.profile!),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedProfile = value;
-                      });
-                    },
-                  ),
-                if (widget.profile != null)
-                  const SizedBox(height: 10),
+                // ============================================
+                // شريط البحث الرئيسي
+                // ============================================
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    labelText: _searchType == 'name'
-                        ? 'اسم المستخدم'
-                        : 'رقم الكرت',
                     hintText: _searchType == 'name'
-                        ? 'مثال: 63134750'
-                        : 'مثال: 63134750',
+                        ? 'ابحث باسم المستخدم...'
+                        : 'ابحث برقم الكرت...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: IconButton(
                       onPressed: _loading ? null : _searchUsers,
                       icon: const Icon(Icons.arrow_forward),
                     ),
                     border: const OutlineInputBorder(),
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
                   ),
                   onSubmitted: (_) => _searchUsers(),
                 ),
+
                 const SizedBox(height: 8),
+
+                // ============================================
+                // صف الأدوات: نوع البحث + الفرز + عكس
+                // ============================================
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _loading ? null : _searchUsers,
-                        icon: const Icon(Icons.search),
-                        label: const Text('بحث عن كرت'),
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _searchType,
+                        decoration: const InputDecoration(
+                          labelText: 'النوع',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 12,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'name',
+                            child: Text('اسم', style: TextStyle(fontSize: 13)),
+                          ),
+                          DropdownMenuItem(
+                            value: 'number',
+                            child: Text('رقم', style: TextStyle(fontSize: 13)),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _searchType = value);
+                        },
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed:
-                        _loading ? null : _loadByProfile,
-                        icon: const Icon(Icons.folder),
-                        label: const Text('جلب البروفايل'),
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _sortBy,
+                        decoration: const InputDecoration(
+                          labelText: 'الفرز',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 12,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'name',
+                            child: Text('الاسم', style: TextStyle(fontSize: 13)),
+                          ),
+                          DropdownMenuItem(
+                            value: 'number',
+                            child: Text('الرقم', style: TextStyle(fontSize: 13)),
+                          ),
+                          DropdownMenuItem(
+                            value: 'profile',
+                            child: Text('البروفايل', style: TextStyle(fontSize: 13)),
+                          ),
+                          DropdownMenuItem(
+                            value: 'duration',
+                            child: Text('المدة', style: TextStyle(fontSize: 13)),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          _changeSort(value);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: IconButton(
+                        onPressed: _users.isEmpty
+                            ? null
+                            : () {
+                          setState(() {
+                            _ascending = !_ascending;
+                            _sortUsers();
+                          });
+                        },
+                        icon: Icon(
+                          _ascending
+                              ? Icons.arrow_upward
+                              : Icons.arrow_downward,
+                          color: Colors.blue,
+                        ),
+                        tooltip: 'عكس الترتيب',
                       ),
                     ),
                   ],
                 ),
+
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton.icon(
-                    onPressed: _loading ? null : _loadAllUsers,
-                    icon: const Icon(Icons.list_alt),
-                    label: const Text(
-                      '📋 جلب جميع الكروت',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+
+                // ============================================
+                // الأزرار الرئيسية
+                // ============================================
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 42,
+                        child: FilledButton.icon(
+                          onPressed: _loading ? null : _searchUsers,
+                          icon: const Icon(Icons.search, size: 18),
+                          label: const Text(
+                            'بحث',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: SizedBox(
+                        height: 42,
+                        child: OutlinedButton.icon(
+                          onPressed: _loading ? null : _loadAllUsers,
+                          icon: const Icon(Icons.list_alt, size: 18),
+                          label: const Text(
+                            'جلب الكل',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ============================================
+                // معلومات النتائج
+                // ============================================
+                if (_users.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _allLoaded
+                              ? Icons.check_circle
+                              : Icons.info_outline,
+                          size: 14,
+                          color: _allLoaded ? Colors.green : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _allLoaded
+                              ? 'الكل: ${_users.length} كرت'
+                              : 'النتائج: ${_users.length}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _users.isEmpty
-                            ? 'لم يتم تحميل نتائج بعد'
-                            : _allLoaded
-                            ? 'تم تحميل جميع النتائج: ${_users.length}'
-                            : 'عدد النتائج: ${_users.length}',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: _users.isEmpty
-                          ? null
-                          : () {
-                        setState(() {
-                          _ascending = !_ascending;
-                          _sortUsers();
-                        });
-                      },
-                      icon: Icon(
-                        _ascending
-                            ? Icons.arrow_upward
-                            : Icons.arrow_downward,
-                      ),
-                      label: const Text('عكس الترتيب'),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
