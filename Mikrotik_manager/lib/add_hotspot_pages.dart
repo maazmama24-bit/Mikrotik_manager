@@ -3,6 +3,7 @@ import 'services/saved_cards_storage.dart';
 import 'package:flutter/material.dart';
 import 'mikrotik_api.dart';
 import 'print_cards_page.dart';
+import 'dart:math';
 
 // =============================================================================
 // Add Hotspot User
@@ -864,12 +865,14 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
   late final TextEditingController _limitGbController;
   late final TextEditingController _commentController;
   late final TextEditingController _customPasswordController;
+  late final TextEditingController _randomLengthController;
 
   List<Map<String, String>> _profiles = [];
   String? _selectedProfile;
   bool _loadingProfiles = true;
 
   String _passwordMode = 'same';
+  String _generationMode = 'sequential';
 
   List<Map<String, String>> _preview = [];
 
@@ -892,6 +895,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     _limitGbController = TextEditingController();
     _commentController = TextEditingController();
     _customPasswordController = TextEditingController();
+    _randomLengthController = TextEditingController(text: '6');
     _selectedProfile = widget.defaultProfile;
     _loadProfiles();
   }
@@ -906,6 +910,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     _limitGbController.dispose();
     _commentController.dispose();
     _customPasswordController.dispose();
+    _randomLengthController.dispose();
     super.dispose();
   }
 
@@ -941,53 +946,115 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
 
 
   List<Map<String, String>> _buildList() {
-    final prefix = _prefixController.text.trim();
-    final start = int.tryParse(_startNumberController.text.trim()) ?? 1;
     final count = int.tryParse(_countController.text.trim()) ?? 0;
-    final padding = int.tryParse(_paddingController.text.trim()) ?? 4;
 
-    if (prefix.isEmpty || count <= 0) return [];
+    if (count <= 0) return [];
 
     final limitBytes = _gbToBytes(_limitGbController.text);
 
     final list = <Map<String, String>>[];
 
-    for (int i = 0; i < count; i++) {
-      final number = start + i;
-      final numberStr = number.toString().padLeft(padding, '0');
-      final name = '$prefix$numberStr';
+    if (_generationMode == 'sequential') {
+      final prefix = _prefixController.text.trim();
+      final start = int.tryParse(_startNumberController.text.trim()) ?? 1;
+      final padding = int.tryParse(_paddingController.text.trim()) ?? 4;
 
-      String password;
-      switch (_passwordMode) {
-        case 'same':
-          password = name;
-          break;
-        case 'random':
-          password = _generateRandomPassword(name);
-          break;
-        case 'custom':
-          password = _customPasswordController.text.trim();
-          break;
-        case 'empty':
-        default:
-          password = '';
-          break;
+      if (prefix.isEmpty) return [];
+
+      for (int i = 0; i < count; i++) {
+        final number = start + i;
+        final numberStr = number.toString().padLeft(padding, '0');
+        final name = '$prefix$numberStr';
+
+        String password;
+        switch (_passwordMode) {
+          case 'same':
+            password = name;
+            break;
+          case 'random':
+            password = _generateRandomPassword(name);
+            break;
+          case 'custom':
+            password = _customPasswordController.text.trim();
+            break;
+          case 'empty':
+          default:
+            password = '';
+            break;
+        }
+
+        list.add({
+          'name': name,
+          'password': password,
+          'profile': _selectedProfile ?? '',
+          'limit-uptime': _limitUptimeController.text.trim(),
+          'limit-bytes-total': limitBytes,
+          'limit-gb': _limitGbController.text.trim(),
+          'comment': _commentController.text.trim(),
+        });
       }
+    } else {
+      final length =
+          int.tryParse(_randomLengthController.text.trim()) ?? 6;
 
-      list.add({
-        'name': name,
-        'password': password,
-        'profile': _selectedProfile ?? '',
-        'limit-uptime': _limitUptimeController.text.trim(),
-        'limit-bytes-total': limitBytes,
-        'limit-gb': _limitGbController.text.trim(),
-        'comment': _commentController.text.trim(),
-      });
+      if (length < 4 || length > 20) return [];
+
+      final usedNames = <String>{};
+
+      for (int i = 0; i < count; i++) {
+        String name;
+        int attempts = 0;
+
+        do {
+          name = _generateRandomNumber(length);
+          attempts++;
+        } while (usedNames.contains(name) && attempts < 100);
+
+        usedNames.add(name);
+
+        String password;
+        switch (_passwordMode) {
+          case 'same':
+            password = name;
+            break;
+          case 'random':
+            password = _generateRandomPassword(name);
+            break;
+          case 'custom':
+            password = _customPasswordController.text.trim();
+            break;
+          case 'empty':
+          default:
+            password = '';
+            break;
+        }
+
+        list.add({
+          'name': name,
+          'password': password,
+          'profile': _selectedProfile ?? '',
+          'limit-uptime': _limitUptimeController.text.trim(),
+          'limit-bytes-total': limitBytes,
+          'limit-gb': _limitGbController.text.trim(),
+          'comment': _commentController.text.trim(),
+        });
+      }
     }
 
     return list;
   }
 
+  /// توليد رقم عشوائي بطول محدد.
+  String _generateRandomNumber(int length) {
+    final random = Random();
+    final buffer = StringBuffer();
+
+    for (int i = 0; i < length; i++) {
+      buffer.write(random.nextInt(10));
+    }
+
+    return buffer.toString();
+  }
   String _generateRandomPassword(String seed) {
     final hash = seed.codeUnits.fold<int>(
       0,
@@ -1169,6 +1236,64 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
         ),
       );
   }
+  Widget _generationModeChip({
+    required String label,
+    required String mode,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isSelected = _generationMode == mode;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: _generating
+            ? null
+            : () {
+          setState(() {
+            _generationMode = mode;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 8,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.15)
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? color : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: isSelected ? color : Colors.grey,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight:
+                  isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? color : Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _passwordModeChip({
     required String label,
     required String mode,
@@ -1364,72 +1489,165 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             // ============================================
             // إعدادات التسمية
             // ============================================
-            _sectionTitle('🔤', 'إعدادات التسمية'),
+            _sectionTitle('🔤', 'نمط التوليد'),
 
             _sectionCard(
               accent: Colors.blue,
               child: Column(
                 children: [
-                  _field(
-                    label: 'البادئة (Prefix) *',
-                    controller: _prefixController,
-                    hint: 'مثال: user',
-                    enabled: !_generating,
-                    prefixIcon: const Icon(Icons.text_fields, size: 18),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'أدخل البادئة';
-                      }
-                      return null;
-                    },
-                  ),
-
+                  // ============================================
+                  // اختيار النمط
+                  // ============================================
                   Row(
                     children: [
-                      Expanded(
-                        child: _field(
-                          label: 'يبدأ من',
-                          controller: _startNumberController,
-                          hint: '1',
-                          keyboardType: TextInputType.number,
-                          enabled: !_generating,
-                          validator: (value) {
-                            final n = int.tryParse(value?.trim() ?? '');
-                            if (n == null || n < 0) return 'رقم غير صالح';
-                            return null;
-                          },
-                        ),
+                      _generationModeChip(
+                        label: 'تسلسلي',
+                        mode: 'sequential',
+                        icon: Icons.format_list_numbered,
+                        color: Colors.blue,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _field(
-                          label: 'العدد',
-                          controller: _countController,
-                          hint: '10',
-                          keyboardType: TextInputType.number,
-                          enabled: !_generating,
-                          validator: (value) {
-                            final n = int.tryParse(value?.trim() ?? '');
-                            if (n == null || n < 1) {
-                              return 'العدد 1 على الأقل';
-                            }
-                            if (n > 1000) return 'الحد 1000';
-                            return null;
-                          },
-                        ),
+                      const SizedBox(width: 8),
+                      _generationModeChip(
+                        label: 'عشوائي',
+                        mode: 'random',
+                        icon: Icons.shuffle,
+                        color: Colors.deepOrange,
                       ),
                     ],
                   ),
 
+                  const SizedBox(height: 14),
+
+                  // ============================================
+                  // إعدادات الوضع التسلسلي
+                  // ============================================
+                  if (_generationMode == 'sequential') ...[
+                    _field(
+                      label: 'البادئة (Prefix) *',
+                      controller: _prefixController,
+                      hint: 'مثال: user',
+                      enabled: !_generating,
+                      prefixIcon: const Icon(Icons.text_fields, size: 18),
+                      validator: (value) {
+                        if (_generationMode == 'sequential' &&
+                            (value == null || value.trim().isEmpty)) {
+                          return 'أدخل البادئة';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _field(
+                            label: 'يبدأ من',
+                            controller: _startNumberController,
+                            hint: '1',
+                            keyboardType: TextInputType.number,
+                            enabled: !_generating,
+                            validator: (value) {
+                              final n =
+                              int.tryParse(value?.trim() ?? '');
+                              if (n == null || n < 0) {
+                                return 'رقم غير صالح';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _field(
+                            label: 'عدد خانات الرقم',
+                            controller: _paddingController,
+                            hint: '4',
+                            keyboardType: TextInputType.number,
+                            enabled: !_generating,
+                            validator: (value) {
+                              final n =
+                              int.tryParse(value?.trim() ?? '');
+                              if (n == null || n < 1 || n > 10) {
+                                return 'من 1 إلى 10';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  // ============================================
+                  // إعدادات الوضع العشوائي
+                  // ============================================
+                  if (_generationMode == 'random') ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.orange.shade200,
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.info,
+                            color: Colors.orange,
+                            size: 18,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'أسماء عشوائية بأرقام فقط — صعبة التخمين',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _field(
+                      label: 'طول الاسم *',
+                      controller: _randomLengthController,
+                      hint: 'مثال: 6',
+                      keyboardType: TextInputType.number,
+                      enabled: !_generating,
+                      prefixIcon: const Icon(Icons.straighten, size: 18),
+                      validator: (value) {
+                        if (_generationMode == 'random') {
+                          final n =
+                          int.tryParse(value?.trim() ?? '');
+                          if (n == null || n < 4 || n > 20) {
+                            return 'من 4 إلى 20';
+                          }
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+
+                  // ============================================
+                  // عدد الكروت (مشترك)
+                  // ============================================
                   _field(
-                    label: 'عدد خانات الرقم',
-                    controller: _paddingController,
-                    hint: '4 = user0001',
+                    label: 'عدد الكروت *',
+                    controller: _countController,
+                    hint: '10',
                     keyboardType: TextInputType.number,
                     enabled: !_generating,
+                    prefixIcon: const Icon(Icons.numbers, size: 18),
                     validator: (value) {
                       final n = int.tryParse(value?.trim() ?? '');
-                      if (n == null || n < 1 || n > 10) return 'من 1 إلى 10';
+                      if (n == null || n < 1) {
+                        return 'العدد 1 على الأقل';
+                      }
+                      if (n > 1000) return 'الحد 1000';
                       return null;
                     },
                   ),
