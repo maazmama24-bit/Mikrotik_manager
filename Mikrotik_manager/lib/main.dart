@@ -2718,16 +2718,6 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
         title: Text(title),
         actions: [
           IconButton(
-            tooltip: 'إضافة كرت',
-            onPressed: _loading ? null : _openAddUser,
-            icon: const Icon(Icons.add_circle_outline),
-          ),
-          IconButton(
-            tooltip: 'توليد كروت',
-            onPressed: _loading ? null : _openGenerateCards,
-            icon: const Icon(Icons.auto_awesome),
-          ),
-          IconButton(
             tooltip: 'جلب جميع الكروت',
             onPressed: _loading ? null : _loadAllUsers,
             icon: const Icon(Icons.list_alt),
@@ -2736,6 +2726,30 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
             tooltip: 'بحث',
             onPressed: _loading ? null : _searchUsers,
             icon: const Icon(Icons.search),
+          ),
+        ],
+      ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'addUser',
+            onPressed: _loading ? null : _openAddUser,
+            backgroundColor: Colors.blue,
+            tooltip: 'إضافة كرت',
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton.extended(
+            heroTag: 'generateCards',
+            onPressed: _loading ? null : _openGenerateCards,
+            backgroundColor: Colors.orange,
+            icon: const Icon(Icons.auto_awesome, color: Colors.white),
+            label: const Text(
+              'توليد كروت',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
