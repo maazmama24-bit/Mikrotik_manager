@@ -13,6 +13,7 @@ import 'interfaces_page.dart';
 import 'vpn_page.dart';
 import 'hotspot_setup_page.dart';
 import 'firewall_page.dart';
+import 'api_singleton.dart';
 
 void main() {
   runApp(const MikrotikManagerApp());
@@ -599,7 +600,9 @@ class RouterDashboardPage extends StatefulWidget {
 }
 
 class _RouterDashboardPageState extends State<RouterDashboardPage> {
-  final MikroTikApi _api = MikroTikApi();
+  final ApiSingleton _singleton = ApiSingleton();
+
+  MikroTikApi? get _api => _singleton.api;
 
   bool _connecting = false;
   bool _connected = false;
@@ -608,50 +611,33 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
   Map<String, String>? _routerInfo;
 
   String? _lastUpdate;
-  Timer? _healthCheckTimer;
 
   @override
   void initState() {
     super.initState();
-    _startHealthCheck();
+
+    // إذا كان Singleton متصلاً بنفس الراوتر، استعد الحالة
+    final currentHost = widget.router['host']?.toString();
+    final cachedHost = _singleton.currentRouter?['host']?.toString();
+
+    if (_singleton.isConnected && currentHost == cachedHost) {
+      _connected = true;
+      _readInfo();
+    }
+
+    _singleton.addListener(_onSingletonChange);
   }
 
   @override
   void dispose() {
-    _healthCheckTimer?.cancel();
-    _api.disconnect();
+    _singleton.removeListener(_onSingletonChange);
     super.dispose();
   }
 
-  /// فحص دوري للاتصال بالراوتر كل 10 ثوانٍ.
-  void _startHealthCheck() {
-    _healthCheckTimer?.cancel();
+  void _onSingletonChange() {
+    if (!mounted) return;
 
-    _healthCheckTimer = Timer.periodic(
-      const Duration(seconds: 10),
-          (timer) {
-        if (!mounted) return;
-        if (!_connected) return;
-        if (_readingData) return;
-
-        _performHealthCheck();
-      },
-    );
-  }
-
-  /// فحص فعلي — إذا فشل، نفصل الاتصال.
-  Future<void> _performHealthCheck() async {
-    try {
-      await _api.getRouterInfo();
-
-      // الاتصال سليم — لا شيء
-    } catch (e) {
-      // فشل الاتصال — نفصل
-      if (!mounted) return;
-
-      _healthCheckTimer?.cancel();
-      _api.disconnect();
-
+    if (!_singleton.isConnected && _connected) {
       setState(() {
         _connected = false;
         _routerInfo = null;
@@ -659,26 +645,17 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
       });
 
       _showMessage(
-        'انقطع الاتصال بالراوتر — يرجى إعادة الاتصال',
+        'انقطع الاتصال بالراوتر — يُحاول إعادة الاتصال',
         isError: true,
       );
     }
-  }
 
-  /// فصل الاتصال يدوياً (يُستخدم عند فشل أي عملية).
-  void _forceDisconnect(String message) {
-    if (!mounted) return;
-
-    _healthCheckTimer?.cancel();
-    _api.disconnect();
-
-    setState(() {
-      _connected = false;
-      _routerInfo = null;
-      _lastUpdate = null;
-    });
-
-    _showMessage(message, isError: true);
+    if (_singleton.isConnected && !_connected) {
+      setState(() {
+        _connected = true;
+      });
+      _readInfo();
+    }
   }
 
   String _currentTime() {
@@ -695,24 +672,42 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
     return _routerInfo?[key] ?? 'غير معروف';
   }
 
+  Future<void> _readInfo() async {
+    if (_api == null) return;
+
+    try {
+      final info = await _api!.getRouterInfo();
+
+      if (!mounted) return;
+
+      setState(() {
+        _routerInfo = info;
+        _lastUpdate = _currentTime();
+      });
+    } catch (e) {
+      // تجاهل
+    }
+  }
+
   Future<bool> _connect() async {
     if (_connecting) return false;
 
     setState(() => _connecting = true);
 
     try {
-      final connected = await _api.connect(
+      final connected = await _singleton.connect(
         host: widget.router['host'].toString(),
         username: widget.router['username'].toString(),
         password: widget.router['password'].toString(),
         port: int.tryParse(widget.router['port'].toString()) ?? 8728,
+        routerInfo: widget.router,
       );
 
       if (!connected) {
         if (mounted) setState(() => _connected = false);
 
         _showMessage(
-          _api.lastError ?? 'فشل الاتصال بالراوتر',
+          _singleton.lastError ?? 'فشل الاتصال بالراوتر',
           isError: true,
         );
 
@@ -723,8 +718,6 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
 
       return true;
     } catch (e) {
-      _api.disconnect();
-
       if (mounted) setState(() => _connected = false);
 
       _showMessage('فشل الاتصال: $e', isError: true);
@@ -743,7 +736,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
     if (!connected) return;
 
     try {
-      final info = await _api.getRouterInfo();
+      final info = await _api!.getRouterInfo();
 
       if (!mounted) return;
 
@@ -752,13 +745,8 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
         _lastUpdate = _currentTime();
       });
 
-      // إعادة تشغيل المراقبة
-      _startHealthCheck();
-
       _showMessage('تم الاتصال بالراوتر بنجاح ✅');
     } catch (e) {
-      _api.disconnect();
-
       if (!mounted) return;
 
       setState(() {
@@ -773,14 +761,29 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
       );
     }
   }
+  /// فصل الاتصال يدوياً.
+  void _forceDisconnect(String message) {
+    if (!mounted) return;
+
+    _singleton.disconnect();
+
+    setState(() {
+      _connected = false;
+      _routerInfo = null;
+      _lastUpdate = null;
+    });
+
+    _showMessage(message);
+  }
 
   Future<void> _updateData() async {
     if (!_connected || _readingData) return;
+    if (_api == null) return;
 
     setState(() => _readingData = true);
 
     try {
-      final info = await _api.getRouterInfo();
+      final info = await _api!.getRouterInfo();
 
       if (!mounted) return;
 
@@ -791,8 +794,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
     } catch (e) {
       if (!mounted) return;
 
-      // فشل الاتصال — نفصل
-      _forceDisconnect('فشل تحديث البيانات — انقطع الاتصال');
+      _showMessage('فشل تحديث البيانات', isError: true);
     } finally {
       if (mounted) setState(() => _readingData = false);
     }
@@ -805,7 +807,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
       context,
       MaterialPageRoute(
         builder: (_) => HotspotUsersPage(
-          api: _api,
+          api: _api!,
           host: _router['host'].toString(),
           username: _router['username'].toString(),
           password: _router['password'].toString(),
@@ -821,7 +823,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
       context,
       MaterialPageRoute(
         builder: (_) => HotspotProfilesPage(
-          api: _api,
+          api: _api!,
           host: _router['host'].toString(),
           username: _router['username'].toString(),
           password: _router['password'].toString(),
@@ -836,7 +838,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
       context,
       MaterialPageRoute(
         builder: (_) => ConnectedUsersPage(
-          api: _api,
+          api: _api!,
           host: _router['host'].toString(),
           username: _router['username'].toString(),
           password: _router['password'].toString(),
@@ -852,7 +854,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
       MaterialPageRoute(
         builder: (_) => RouterSettingsHubPage(
           router: widget.router,
-          api: _api,
+          api: _api!,
         ),
       ),
     );
@@ -1121,7 +1123,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => HotspotCardsHubPage(
-                            api: _api,
+                            api: _api!,
                             host: _router['host'].toString(),
                             username:
                             _router['username'].toString(),
