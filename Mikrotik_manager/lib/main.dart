@@ -3664,6 +3664,21 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
   }
 
 
+  int get _totalBytesIn {
+    int total = 0;
+    for (final u in _activeUsers) {
+      total += int.tryParse(u['bytes-in'] ?? '0') ?? 0;
+    }
+    return total;
+  }
+
+  int get _totalBytesOut {
+    int total = 0;
+    for (final u in _activeUsers) {
+      total += int.tryParse(u['bytes-out'] ?? '0') ?? 0;
+    }
+    return total;
+  }
 
   String _value(Map<String, String> user, String key) {
     final value = user[key];
@@ -3790,11 +3805,11 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
           ],
         ),
       )
-        : ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: _filteredUsers.length,
-      itemBuilder: (context, index) {
-        final user = _filteredUsers[index];
+        : ListView(
+    padding: const EdgeInsets.all(8),
+    children: [
+    _statsCard(),
+    ..._filteredUsers.map((user) {
 
           final name = user['user'] ?? user['name'] ?? '-';
           final address = _value(user, 'address');
@@ -3920,7 +3935,8 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
               ],
             ),
           );
-        },
+    }),
+    ],
     ),
     ),
             ],
@@ -3928,6 +3944,127 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
     );
   }
 
+  Widget _statsCard() {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: [Colors.green.shade400, Colors.green.shade600],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.wifi,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'المتصلون الآن',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        '${_activeUsers.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _statsItem(
+                      Icons.download,
+                      'تنزيل',
+                      _formatBytes(_totalBytesIn.toString()),
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 30,
+                    color: Colors.white.withValues(alpha: 0.3),
+                  ),
+                  Expanded(
+                    child: _statsItem(
+                      Icons.upload,
+                      'رفع',
+                      _formatBytes(_totalBytesOut.toString()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statsItem(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _detailRow(String title, String value) {
     return Padding(
