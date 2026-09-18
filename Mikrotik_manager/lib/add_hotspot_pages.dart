@@ -44,6 +44,7 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
   String? _selectedProfile;
   bool _loadingProfiles = true;
   bool _saving = false;
+  String _passwordMode = 'same';
 
   final List<Map<String, String>> _durationPresets = const [
     {'label': '1 ساعة', 'value': '1h'},
@@ -169,9 +170,27 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
         return;
       }
 
+      // حدد كلمة المرور حسب الوضع
+      String finalPassword;
+      switch (_passwordMode) {
+        case 'empty':
+          finalPassword = '';
+          break;
+        case 'same':
+          finalPassword = name;
+          break;
+        case 'random':
+          finalPassword = _generatePassword();
+          break;
+        case 'custom':
+        default:
+          finalPassword = _passwordController.text;
+          break;
+      }
+
       final id = await _api.addHotspotUser(
         name: name,
-        password: _passwordController.text,
+        password: finalPassword,
         profile: _selectedProfile!,
         limitUptime: _limitUptimeController.text.trim(),
         limitBytesTotal: _limitGbController.text.trim(),
@@ -319,6 +338,64 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
       ),
     );
   }
+  Widget _passwordModeChip({
+    required String label,
+    required String mode,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isSelected = _passwordMode == mode;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _passwordMode = mode;
+            if (mode != 'custom') {
+              _passwordController.clear();
+            }
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(
+            vertical: 10,
+            horizontal: 4,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.15)
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? color : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected ? color : Colors.grey,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight:
+                  isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? color : Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _presetChips({
     required List<Map<String, String>> presets,
@@ -405,17 +482,144 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
                     },
                   ),
 
-                  _field(
-                    label: 'كلمة المرور (اختياري)',
-                    controller: _passwordController,
-                    hint: 'اتركها فارغة إذا كانت مثل الاسم',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      tooltip: 'توليد كلمة مرور',
-                      onPressed: _useRandomPassword,
-                      icon: const Icon(Icons.casino, color: Colors.purple),
+                  // خيارات كلمة المرور
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      'كلمة المرور:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
+
+                  Row(
+                    children: [
+                      _passwordModeChip(
+                        label: 'فارغة',
+                        mode: 'empty',
+                        icon: Icons.lock_open,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 6),
+                      _passwordModeChip(
+                        label: 'مثل الاسم',
+                        mode: 'same',
+                        icon: Icons.content_copy,
+                        color: Colors.blue,
+                      ),
+                      const SizedBox(width: 6),
+                      _passwordModeChip(
+                        label: 'عشوائية',
+                        mode: 'random',
+                        icon: Icons.casino,
+                        color: Colors.purple,
+                      ),
+                      const SizedBox(width: 6),
+                      _passwordModeChip(
+                        label: 'مخصصة',
+                        mode: 'custom',
+                        icon: Icons.edit,
+                        color: Colors.orange,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // حقل كلمة المرور المخصصة
+                  if (_passwordMode == 'custom')
+                    _field(
+                      label: 'كلمة المرور',
+                      controller: _passwordController,
+                      hint: 'اكتب كلمة المرور',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        tooltip: 'توليد',
+                        onPressed: _useRandomPassword,
+                        icon: const Icon(Icons.casino),
+                      ),
+                    )
+                  else if (_passwordMode == 'same')
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.blue.shade200,
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info, color: Colors.blue, size: 18),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'كلمة المرور ستكون نفس اسم المستخدم',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (_passwordMode == 'random')
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.purple.shade200,
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info, color: Colors.purple, size: 18),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'سيتم توليد كلمة مرور عشوائية لكل كرت',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.purple,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info, color: Colors.grey, size: 18),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'الكرت سيكون بدون كلمة مرور',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                   if (_loadingProfiles)
                     const Padding(
