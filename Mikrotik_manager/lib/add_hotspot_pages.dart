@@ -111,7 +111,8 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
   }
 
   String _generatePassword() {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final seed = DateTime.now().millisecondsSinceEpoch;
     final buffer = StringBuffer();
     for (int i = 0; i < 8; i++) {
@@ -163,7 +164,8 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
       if (exists) {
         if (!mounted) return;
         setState(() => _saving = false);
-        _showMessage('الاسم "$name" موجود مسبقاً. اختر اسماً آخر.', isError: true);
+        _showMessage('الاسم "$name" موجود مسبقاً. اختر اسماً آخر.',
+            isError: true);
         return;
       }
 
@@ -205,6 +207,77 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
       );
   }
 
+  IconData _iconFromEmoji(String emoji) {
+    switch (emoji) {
+      case '📝':
+        return Icons.edit_note;
+      case '⏱️':
+        return Icons.timer;
+      case '📊':
+        return Icons.data_usage;
+      case '💬':
+        return Icons.comment;
+      default:
+        return Icons.circle;
+    }
+  }
+
+  Widget _sectionTitle(String icon, String title, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10, top: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: (color ?? Colors.blue).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _iconFromEmoji(icon),
+              size: 18,
+              color: color ?? Colors.blue,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard({
+    required Widget child,
+    Color? accent,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: (accent ?? Colors.blue).withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (accent ?? Colors.blue).withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   Widget _field({
     required String label,
     required TextEditingController controller,
@@ -213,10 +286,11 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
     int maxLines = 1,
     String? Function(String?)? validator,
     Widget? suffixIcon,
+    Widget? prefixIcon,
     TextInputType? keyboardType,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
@@ -225,8 +299,21 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
-          border: const OutlineInputBorder(),
+          filled: true,
+          fillColor: Colors.grey.shade50,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.blue, width: 2),
+          ),
           suffixIcon: suffixIcon,
+          prefixIcon: prefixIcon,
         ),
         validator: validator,
       ),
@@ -237,6 +324,7 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
     required List<Map<String, String>> presets,
     required String? selected,
     required Function(String) onSelected,
+    required Color color,
   }) {
     return Wrap(
       spacing: 6,
@@ -245,10 +333,35 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
         final value = preset['value'] ?? '';
         final label = preset['label'] ?? '';
         final isSelected = selected == value;
-        return ChoiceChip(
-          label: Text(label),
-          selected: isSelected,
-          onSelected: (_) => onSelected(value),
+
+        return GestureDetector(
+          onTap: () => onSelected(value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? color.withValues(alpha: 0.15)
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected ? color : Colors.transparent,
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight:
+                isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? color : Colors.grey.shade700,
+              ),
+            ),
+          ),
         );
       }).toList(),
     );
@@ -257,168 +370,224 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('➕ إضافة كرت جديد'),
-        actions: [
-          IconButton(
-            onPressed: _saving ? null : _save,
-            tooltip: 'حفظ',
-            icon: const Icon(Icons.save),
-          ),
-        ],
+        centerTitle: true,
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           children: [
-            const Text(
-              '📝 البيانات الأساسية',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
+            // ============================================
+            // المعلومات الأساسية
+            // ============================================
+            _sectionTitle('📝', 'المعلومات الأساسية'),
 
-            _field(
-              label: 'اسم المستخدم *',
-              controller: _nameController,
-              hint: 'مثال: user001',
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'أدخل اسم المستخدم';
-                }
-                if (value.trim().length < 3) {
-                  return 'الاسم قصير جداً (3 أحرف على الأقل)';
-                }
-                return null;
-              },
-            ),
+            _sectionCard(
+              accent: Colors.blue,
+              child: Column(
+                children: [
+                  _field(
+                    label: 'اسم المستخدم *',
+                    controller: _nameController,
+                    hint: 'مثال: user001',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'أدخل اسم المستخدم';
+                      }
+                      if (value.trim().length < 3) {
+                        return 'الاسم قصير جداً (3 أحرف على الأقل)';
+                      }
+                      return null;
+                    },
+                  ),
 
-            _field(
-              label: 'كلمة المرور *',
-              controller: _passwordController,
-              hint: 'اتركها فارغة إذا كانت مثل الاسم',
-              suffixIcon: IconButton(
-                tooltip: 'توليد كلمة مرور',
-                onPressed: _useRandomPassword,
-                icon: const Icon(Icons.casino),
-              ),
-            ),
+                  _field(
+                    label: 'كلمة المرور *',
+                    controller: _passwordController,
+                    hint: 'اتركها فارغة إذا كانت مثل الاسم',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      tooltip: 'توليد كلمة مرور',
+                      onPressed: _useRandomPassword,
+                      icon: const Icon(Icons.casino, color: Colors.purple),
+                    ),
+                  ),
 
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: _loadingProfiles
-                  ? const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                  if (_loadingProfiles)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: LinearProgressIndicator(),
+                    )
+                  else if (_profiles.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      SizedBox(width: 12),
-                      Text('جاري تحميل البروفايلات...'),
-                    ],
-                  ),
-                ),
-              )
-                  : _profiles.isEmpty
-                  ? const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text(
-                    'لا توجد بروفايلات. أنشئ بروفايل أولاً.',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              )
-                  : DropdownButtonFormField<String>(
-                initialValue: _selectedProfile,
-                decoration: const InputDecoration(
-                  labelText: 'البروفايل *',
-                  border: OutlineInputBorder(),
-                ),
-                items: _profiles.map((profile) {
-                  final name = profile['name'] ?? '';
-                  return DropdownMenuItem<String>(
-                    value: name,
-                    child: Text(name),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() => _selectedProfile = value);
-                },
+                      child: const Row(
+                        children: [
+                          Icon(Icons.warning, color: Colors.red, size: 18),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'لا توجد بروفايلات — أنشئ بروفايل أولاً',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _selectedProfile,
+                        decoration: InputDecoration(
+                          labelText: 'البروفايل *',
+                          prefixIcon:
+                          const Icon(Icons.category_outlined),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        items: _profiles.map((profile) {
+                          final name = profile['name'] ?? '';
+                          return DropdownMenuItem<String>(
+                            value: name,
+                            child: Text(name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedProfile = value);
+                        },
+                      ),
+                    ),
+                ],
               ),
             ),
 
-            const SizedBox(height: 20),
+            // ============================================
+            // المدة
+            // ============================================
+            _sectionTitle('⏱️', 'المدة', color: Colors.green),
 
-            const Text(
-              '⏱️ المدة (Limit Uptime)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            _sectionCard(
+              accent: Colors.green,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'اختر مدة سريعة:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _presetChips(
+                    presets: _durationPresets,
+                    selected: _selectedDurationPreset,
+                    onSelected: _selectDurationPreset,
+                    color: Colors.green,
+                  ),
+                  const SizedBox(height: 12),
+                  _field(
+                    label: 'مدة مخصصة',
+                    controller: _limitUptimeController,
+                    hint: 'مثال: 30d، 12h، 1w',
+                    prefixIcon: const Icon(Icons.edit, size: 18),
+                  ),
+                ],
+              ),
             ),
+
+            // ============================================
+            // البيانات
+            // ============================================
+            _sectionTitle('📊', 'حد البيانات', color: Colors.orange),
+
+            _sectionCard(
+              accent: Colors.orange,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'اختر حجماً سريعاً:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _presetChips(
+                    presets: _bytesPresets,
+                    selected: _selectedBytesPreset,
+                    onSelected: _selectBytesPreset,
+                    color: Colors.orange,
+                  ),
+                  const SizedBox(height: 12),
+                  _field(
+                    label: 'بيانات مخصصة (بالبايت)',
+                    controller: _limitGbController,
+                    hint: 'مثال: 1073741824 = 1GB',
+                    keyboardType: TextInputType.number,
+                    prefixIcon: const Icon(Icons.storage, size: 18),
+                  ),
+                ],
+              ),
+            ),
+
+            // ============================================
+            // معلومات إضافية
+            // ============================================
+            _sectionTitle('💬', 'معلومات إضافية', color: Colors.purple),
+
+            _sectionCard(
+              accent: Colors.purple,
+              child: _field(
+                label: 'ملاحظة',
+                controller: _commentController,
+                hint: 'مثال: كرت للعميل أحمد',
+                maxLines: 2,
+                prefixIcon: const Icon(Icons.comment, size: 18),
+              ),
+            ),
+
             const SizedBox(height: 8),
-            _presetChips(
-              presets: _durationPresets,
-              selected: _selectedDurationPreset,
-              onSelected: _selectDurationPreset,
-            ),
-            const SizedBox(height: 10),
-            _field(
-              label: 'مدة مخصصة',
-              controller: _limitUptimeController,
-              hint: 'مثال: 30d، 12h، 1w',
-            ),
 
-            const SizedBox(height: 20),
-
-            const Text(
-              '📊 حد البيانات (Limit Bytes)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            _presetChips(
-              presets: _bytesPresets,
-              selected: _selectedBytesPreset,
-              onSelected: _selectBytesPreset,
-            ),
-            const SizedBox(height: 10),
-            _field(
-              label: 'بيانات مخصصة (بالبايت)',
-              controller: _limitGbController,
-              hint: 'مثال: 1073741824 = 1GB',
-              keyboardType: TextInputType.number,
-            ),
-
-            const SizedBox(height: 20),
-
-            const Text(
-              '📝 معلومات إضافية (اختياري)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            _field(
-              label: 'ملاحظة',
-              controller: _commentController,
-              hint: 'مثال: كرت للعميل أحمد',
-              maxLines: 2,
-            ),
-
-            const SizedBox(height: 10),
-
+            // ============================================
+            // زر الحفظ
+            // ============================================
             SizedBox(
-              height: 54,
+              height: 56,
               child: FilledButton.icon(
                 onPressed: _saving ? null : _save,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.green.shade600,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
                 icon: _saving
                     ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
-                    : const Icon(Icons.save),
+                    : const Icon(Icons.save, size: 22),
                 label: Text(
                   _saving ? 'جاري الحفظ...' : '💾 إضافة الكرت',
                   style: const TextStyle(
