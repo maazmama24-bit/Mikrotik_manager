@@ -3663,6 +3663,8 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
     }).toList();
   }
 
+
+
   String _value(Map<String, String> user, String key) {
     final value = user[key];
 
@@ -3925,6 +3927,7 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
         ),
     );
   }
+
 
   Widget _detailRow(String title, String value) {
     return Padding(
