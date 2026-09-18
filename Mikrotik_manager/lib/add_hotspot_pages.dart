@@ -1222,9 +1222,11 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     bool enabled = true,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
         controller: controller,
         enabled: enabled,
@@ -1232,18 +1234,107 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
-          border: const OutlineInputBorder(),
+          filled: true,
+          fillColor: Colors.grey.shade50,
+          prefixIcon: prefixIcon,
+          suffixIcon: suffixIcon,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.blue, width: 2),
+          ),
         ),
         validator: validator,
       ),
     );
   }
 
+  Widget _sectionTitle(String icon, String title, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10, top: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: (color ?? Colors.blue).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _iconFromEmoji(icon),
+              size: 18,
+              color: color ?? Colors.blue,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _iconFromEmoji(String emoji) {
+    switch (emoji) {
+      case '🔤':
+        return Icons.text_fields;
+      case '📡':
+        return Icons.router;
+      case '🔑':
+        return Icons.key;
+      case '⏱️':
+        return Icons.timer;
+      case '💬':
+        return Icons.comment;
+      default:
+        return Icons.circle;
+    }
+  }
+
+  Widget _sectionCard({
+    required Widget child,
+    Color? accent,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: (accent ?? Colors.blue).withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (accent ?? Colors.blue).withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('📦 توليد كروت جماعية'),
+        centerTitle: true,
         actions: [
           if (_generating)
             IconButton(
@@ -1256,268 +1347,265 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           children: [
-            const Text(
-              '🔤 إعدادات التسمية',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
+            // ============================================
+            // إعدادات التسمية
+            // ============================================
+            _sectionTitle('🔤', 'إعدادات التسمية'),
 
-            _field(
-              label: 'البادئة (Prefix) *',
-              controller: _prefixController,
-              hint: 'مثال: user',
-              enabled: !_generating,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'أدخل البادئة';
-                }
-                return null;
-              },
-            ),
+            _sectionCard(
+              accent: Colors.blue,
+              child: Column(
+                children: [
+                  _field(
+                    label: 'البادئة (Prefix) *',
+                    controller: _prefixController,
+                    hint: 'مثال: user',
+                    enabled: !_generating,
+                    prefixIcon: const Icon(Icons.text_fields, size: 18),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'أدخل البادئة';
+                      }
+                      return null;
+                    },
+                  ),
 
-            Row(
-              children: [
-                Expanded(
-                  child: _field(
-                    label: 'يبدأ من *',
-                    controller: _startNumberController,
-                    hint: '1',
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _field(
+                          label: 'يبدأ من',
+                          controller: _startNumberController,
+                          hint: '1',
+                          keyboardType: TextInputType.number,
+                          enabled: !_generating,
+                          validator: (value) {
+                            final n = int.tryParse(value?.trim() ?? '');
+                            if (n == null || n < 0) return 'رقم غير صالح';
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _field(
+                          label: 'العدد',
+                          controller: _countController,
+                          hint: '10',
+                          keyboardType: TextInputType.number,
+                          enabled: !_generating,
+                          validator: (value) {
+                            final n = int.tryParse(value?.trim() ?? '');
+                            if (n == null || n < 1) {
+                              return 'العدد 1 على الأقل';
+                            }
+                            if (n > 1000) return 'الحد 1000';
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  _field(
+                    label: 'عدد خانات الرقم',
+                    controller: _paddingController,
+                    hint: '4 = user0001',
                     keyboardType: TextInputType.number,
                     enabled: !_generating,
                     validator: (value) {
                       final n = int.tryParse(value?.trim() ?? '');
-                      if (n == null || n < 0) return 'رقم غير صالح';
+                      if (n == null || n < 1 || n > 10) return 'من 1 إلى 10';
                       return null;
                     },
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _field(
-                    label: 'العدد *',
-                    controller: _countController,
-                    hint: '10',
-                    keyboardType: TextInputType.number,
-                    enabled: !_generating,
-                    validator: (value) {
-                      final n = int.tryParse(value?.trim() ?? '');
-                      if (n == null || n < 1) return 'العدد يجب أن يكون 1 على الأقل';
-                      if (n > 1000) return 'الحد الأقصى 1000';
-                      return null;
-                    },
-                  ),
-                ),
-              ],
-            ),
-
-            _field(
-              label: 'عدد خانات الرقم',
-              controller: _paddingController,
-              hint: '4 = user0001',
-              keyboardType: TextInputType.number,
-              enabled: !_generating,
-              validator: (value) {
-                final n = int.tryParse(value?.trim() ?? '');
-                if (n == null || n < 1 || n > 10) return 'من 1 إلى 10';
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            const Text(
-              '📡 البروفايل',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            _loadingProfiles
-                ? const LinearProgressIndicator()
-                : DropdownButtonFormField<String>(
-              initialValue: _selectedProfile,
-              decoration: const InputDecoration(
-                labelText: 'البروفايل *',
-                border: OutlineInputBorder(),
+                ],
               ),
-              items: _profiles.map((profile) {
-                final name = profile['name'] ?? '';
-                return DropdownMenuItem<String>(
-                  value: name,
-                  child: Text(name),
-                );
-              }).toList(),
-              onChanged: _generating
-                  ? null
-                  : (value) {
-                setState(() => _selectedProfile = value);
-              },
             ),
 
-            const SizedBox(height: 20),
+            // ============================================
+            // البروفايل
+            // ============================================
+            _sectionTitle('📡', 'البروفايل', color: Colors.teal),
 
-            const Text(
-              '🔑 كلمة المرور',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            _sectionCard(
+              accent: Colors.teal,
+              child: _loadingProfiles
+                  ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(),
+              )
+                  : DropdownButtonFormField<String>(
+                initialValue: _selectedProfile,
+                decoration: InputDecoration(
+                  labelText: 'البروفايل *',
+                  prefixIcon: const Icon(Icons.router, size: 18),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                items: _profiles.map((profile) {
+                  final name = profile['name'] ?? '';
+                  return DropdownMenuItem<String>(
+                    value: name,
+                    child: Text(name),
+                  );
+                }).toList(),
+                onChanged: _generating
+                    ? null
+                    : (value) {
+                  setState(() => _selectedProfile = value);
+                },
+              ),
             ),
+
+            // ============================================
+            // كلمة المرور
+            // ============================================
+            _sectionTitle('🔑', 'كلمة المرور', color: Colors.purple),
+
+            _sectionCard(
+              accent: Colors.purple,
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      _passwordModeChip(
+                        label: 'فارغة',
+                        mode: 'empty',
+                        icon: Icons.lock_open,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 6),
+                      _passwordModeChip(
+                        label: 'مثل الاسم',
+                        mode: 'same',
+                        icon: Icons.content_copy,
+                        color: Colors.blue,
+                      ),
+                      const SizedBox(width: 6),
+                      _passwordModeChip(
+                        label: 'عشوائية',
+                        mode: 'random',
+                        icon: Icons.casino,
+                        color: Colors.purple,
+                      ),
+                      const SizedBox(width: 6),
+                      _passwordModeChip(
+                        label: 'موحّدة',
+                        mode: 'custom',
+                        icon: Icons.edit,
+                        color: Colors.orange,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  if (_passwordMode == 'custom')
+                    _field(
+                      label: 'كلمة المرور الموحّدة',
+                      controller: _customPasswordController,
+                      hint: 'نفس كلمة المرور لكل الكروت',
+                      enabled: !_generating,
+                      prefixIcon: const Icon(Icons.key, size: 18),
+                    )
+                  else if (_passwordMode == 'same')
+                    _infoBox(
+                      icon: Icons.info,
+                      color: Colors.blue,
+                      text: 'كل كرت ستكون كلمة مروره نفس اسم المستخدم',
+                    )
+                  else if (_passwordMode == 'random')
+                      _infoBox(
+                        icon: Icons.info,
+                        color: Colors.purple,
+                        text: 'كل كرت ستكون كلمة مروره عشوائية',
+                      )
+                    else
+                      _infoBox(
+                        icon: Icons.info,
+                        color: Colors.grey,
+                        text: 'الكروت ستكون بدون كلمة مرور',
+                      ),
+                ],
+              ),
+            ),
+
+            // ============================================
+            // القيود
+            // ============================================
+            _sectionTitle('⏱️', 'القيود', color: Colors.green),
+
+            _sectionCard(
+              accent: Colors.green,
+              child: Column(
+                children: [
+                  _field(
+                    label: 'المدة',
+                    controller: _limitUptimeController,
+                    hint: 'مثال: 30d، 1h',
+                    enabled: !_generating,
+                    prefixIcon: const Icon(Icons.timer, size: 18),
+                  ),
+
+                  _field(
+                    label: 'حد البيانات (بـ GB)',
+                    controller: _limitGbController,
+                    hint: '2 = 2 جيجا، 0.5 = 500 ميجا',
+                    keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                    enabled: !_generating,
+                    prefixIcon: const Icon(Icons.data_usage, size: 18),
+                  ),
+
+                  _field(
+                    label: 'ملاحظة',
+                    controller: _commentController,
+                    hint: 'ملاحظة توضع على جميع الكروت',
+                    enabled: !_generating,
+                    prefixIcon: const Icon(Icons.comment, size: 18),
+                  ),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 8),
 
-            Row(
-              children: [
-                _passwordModeChip(
-                  label: 'فارغة',
-                  mode: 'empty',
-                  icon: Icons.lock_open,
-                  color: Colors.grey,
-                ),
-                const SizedBox(width: 6),
-                _passwordModeChip(
-                  label: 'مثل الاسم',
-                  mode: 'same',
-                  icon: Icons.content_copy,
-                  color: Colors.blue,
-                ),
-                const SizedBox(width: 6),
-                _passwordModeChip(
-                  label: 'عشوائية',
-                  mode: 'random',
-                  icon: Icons.casino,
-                  color: Colors.purple,
-                ),
-                const SizedBox(width: 6),
-                _passwordModeChip(
-                  label: 'موحّدة',
-                  mode: 'custom',
-                  icon: Icons.edit,
-                  color: Colors.orange,
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            if (_passwordMode == 'custom')
-              _field(
-                label: 'كلمة المرور الموحّدة',
-                controller: _customPasswordController,
-                hint: 'نفس كلمة المرور لكل الكروت',
-                enabled: !_generating,
-              )
-            else if (_passwordMode == 'same')
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.info, color: Colors.blue, size: 18),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'كل كرت ستكون كلمة مروره نفس اسم المستخدم',
-                        style: TextStyle(fontSize: 12, color: Colors.blue),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else if (_passwordMode == 'random')
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.purple.shade200),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info, color: Colors.purple, size: 18),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'كل كرت ستكون كلمة مروره عشوائية',
-                          style: TextStyle(fontSize: 12, color: Colors.purple),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info, color: Colors.grey, size: 18),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'الكروت ستكون بدون كلمة مرور',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-            const SizedBox(height: 20),
-
-            const Text(
-              '⏱️ 📊 القيود',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            _field(
-              label: 'المدة',
-              controller: _limitUptimeController,
-              hint: 'مثال: 30d',
-              enabled: !_generating,
-            ),
-
-            _field(
-              label: 'حد البيانات (بـ GB)',
-              controller: _limitGbController,
-              hint: 'مثال: 2 = 2 جيجا، 0.5 = 500 ميجا',
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              enabled: !_generating,
-            ),
-
-            _field(
-              label: 'ملاحظة',
-              controller: _commentController,
-              hint: 'ملاحظة توضع على جميع الكروت',
-              enabled: !_generating,
-            ),
-
-            const SizedBox(height: 20),
-
+            // ============================================
+            // أزرار الإجراءات
+            // ============================================
             if (!_generating)
               Column(
                 children: [
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _doPreview,
-                          icon: const Icon(Icons.visibility),
-                          label: const Text('معاينة'),
+                        child: SizedBox(
+                          height: 50,
+                          child: OutlinedButton.icon(
+                            onPressed: _doPreview,
+                            icon: const Icon(Icons.visibility, size: 20),
+                            label: const Text('معاينة'),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _generate,
-                          icon: const Icon(Icons.auto_awesome),
-                          label: const Text('توليد'),
+                        child: SizedBox(
+                          height: 50,
+                          child: FilledButton.icon(
+                            onPressed: _generate,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.green.shade600,
+                            ),
+                            icon: const Icon(Icons.auto_awesome, size: 20),
+                            label: const Text('توليد'),
+                          ),
                         ),
                       ),
                     ],
@@ -1540,7 +1628,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                           );
                         },
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: Colors.indigo,
                         ),
                         icon: const Icon(Icons.print),
                         label: const Text(
@@ -1552,8 +1640,11 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                 ],
               ),
 
+            // ============================================
+            // شريط التقدم
+            // ============================================
             if (_generating) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -1568,7 +1659,9 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                       ),
                       const SizedBox(height: 12),
                       LinearProgressIndicator(
-                        value: _totalCount > 0 ? _currentIndex / _totalCount : 0,
+                        value: _totalCount > 0
+                            ? _currentIndex / _totalCount
+                            : 0,
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -1583,7 +1676,10 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                             children: [
                               const Text(
                                 'نجح',
-                                style: TextStyle(color: Colors.green, fontSize: 12),
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 12,
+                                ),
                               ),
                               Text(
                                 '$_generatedCount',
@@ -1598,7 +1694,10 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                             children: [
                               const Text(
                                 'فشل',
-                                style: TextStyle(color: Colors.red, fontSize: 12),
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
                               ),
                               Text(
                                 '$_failedCount',
@@ -1617,91 +1716,162 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
               ),
             ],
 
+            // ============================================
+            // المعاينة
+            // ============================================
             if (_preview.isNotEmpty && !_generating) ...[
-              const SizedBox(height: 20),
-              const Text(
-                '👁️ معاينة الكروت',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              const SizedBox(height: 16),
+              _sectionTitle(
+                '👁️',
+                'معاينة الكروت (${_preview.length})',
+                color: Colors.indigo,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'سيتم توليد ${_preview.length} كرت',
-                style: const TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 10),
-              Card(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _preview.length > 20 ? 20 : _preview.length,
-                  itemBuilder: (context, index) {
-                    final card = _preview[index];
-                    final password = card['password'] ?? '';
-                    final uptime = card['limit-uptime'] ?? '';
-                    final gb = card['limit-gb'] ?? '';
-
-                    return ListTile(
-                      dense: true,
-                      leading: CircleAvatar(
-                        radius: 14,
+              _sectionCard(
+                accent: Colors.indigo,
+                child: Column(
+                  children: [
+                    for (int i = 0; i < (_preview.length > 20 ? 20 : _preview.length); i++)
+                      _previewCardItem(_preview[i], i),
+                    if (_preview.length > 20)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
                         child: Text(
-                          '${index + 1}',
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ),
-                      title: Text(
-                        card['name'] ?? '',
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'كلمة المرور: ${password.isEmpty ? '(الاسم)' : password}',
-                            style: const TextStyle(fontSize: 11),
+                          '... و ${_preview.length - 20} كرت إضافي',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic,
                           ),
-                          if (uptime.isNotEmpty)
-                            Text(
-                              'المدة: $uptime',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.green,
-                              ),
-                            ),
-                          if (gb.isNotEmpty)
-                            Text(
-                              'البيانات: $gb GB',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.blue,
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
-                    );
-                  },
+                  ],
                 ),
               ),
-              if (_preview.length > 20)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    '... و ${_preview.length - 20} كرت إضافي',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
             ],
 
             const SizedBox(height: 30),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _infoBox({
+    required IconData icon,
+    required Color color,
+    required String text,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _previewCardItem(Map<String, String> card, int index) {
+    final password = card['password'] ?? '';
+    final uptime = card['limit-uptime'] ?? '';
+    final gb = card['limit-gb'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: Colors.blue.shade100,
+            child: Text(
+              '${index + 1}',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.blue.shade800,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  card['name'] ?? '',
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    if (password.isNotEmpty) ...[
+                      Icon(Icons.key,
+                          size: 10, color: Colors.purple.shade400),
+                      const SizedBox(width: 2),
+                      Text(
+                        password,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.purple.shade700,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    if (uptime.isNotEmpty) ...[
+                      Icon(Icons.timer,
+                          size: 10, color: Colors.green.shade400),
+                      const SizedBox(width: 2),
+                      Text(
+                        uptime,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    if (gb.isNotEmpty) ...[
+                      Icon(Icons.data_usage,
+                          size: 10, color: Colors.blue.shade400),
+                      const SizedBox(width: 2),
+                      Text(
+                        '$gb GB',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
