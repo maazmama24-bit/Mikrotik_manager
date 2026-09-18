@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'mikrotik_api.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'router_storage.dart';
@@ -607,11 +608,77 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
   Map<String, String>? _routerInfo;
 
   String? _lastUpdate;
+  Timer? _healthCheckTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startHealthCheck();
+  }
 
   @override
   void dispose() {
+    _healthCheckTimer?.cancel();
     _api.disconnect();
     super.dispose();
+  }
+
+  /// فحص دوري للاتصال بالراوتر كل 10 ثوانٍ.
+  void _startHealthCheck() {
+    _healthCheckTimer?.cancel();
+
+    _healthCheckTimer = Timer.periodic(
+      const Duration(seconds: 10),
+          (timer) {
+        if (!mounted) return;
+        if (!_connected) return;
+        if (_readingData) return;
+
+        _performHealthCheck();
+      },
+    );
+  }
+
+  /// فحص فعلي — إذا فشل، نفصل الاتصال.
+  Future<void> _performHealthCheck() async {
+    try {
+      await _api.getRouterInfo();
+
+      // الاتصال سليم — لا شيء
+    } catch (e) {
+      // فشل الاتصال — نفصل
+      if (!mounted) return;
+
+      _healthCheckTimer?.cancel();
+      _api.disconnect();
+
+      setState(() {
+        _connected = false;
+        _routerInfo = null;
+        _lastUpdate = null;
+      });
+
+      _showMessage(
+        'انقطع الاتصال بالراوتر — يرجى إعادة الاتصال',
+        isError: true,
+      );
+    }
+  }
+
+  /// فصل الاتصال يدوياً (يُستخدم عند فشل أي عملية).
+  void _forceDisconnect(String message) {
+    if (!mounted) return;
+
+    _healthCheckTimer?.cancel();
+    _api.disconnect();
+
+    setState(() {
+      _connected = false;
+      _routerInfo = null;
+      _lastUpdate = null;
+    });
+
+    _showMessage(message, isError: true);
   }
 
   String _currentTime() {
@@ -685,6 +752,9 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
         _lastUpdate = _currentTime();
       });
 
+      // إعادة تشغيل المراقبة
+      _startHealthCheck();
+
       _showMessage('تم الاتصال بالراوتر بنجاح ✅');
     } catch (e) {
       _api.disconnect();
@@ -721,10 +791,8 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
     } catch (e) {
       if (!mounted) return;
 
-      _showMessage(
-        'فشل تحديث معلومات الراوتر: $e',
-        isError: true,
-      );
+      // فشل الاتصال — نفصل
+      _forceDisconnect('فشل تحديث البيانات — انقطع الاتصال');
     } finally {
       if (mounted) setState(() => _readingData = false);
     }
@@ -1321,17 +1389,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
 
                     if (confirmed != true) return;
 
-                    _api.disconnect();
-
-                    if (!mounted) return;
-
-                    setState(() {
-                      _connected = false;
-                      _routerInfo = null;
-                      _lastUpdate = null;
-                    });
-
-                    _showMessage('تم قطع الاتصال 🔌');
+                    _forceDisconnect('تم قطع الاتصال 🔌');
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
