@@ -4239,15 +4239,22 @@ class RouterSettingsHubPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('⚙️ إعدادات الراوتر'),
+        centerTitle: true,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         children: [
+          // ============================================
+          // إعدادات الاتصال
+          // ============================================
           _sectionTitle(
             context,
-            '🌐 إعدادات الاتصال',
+            'إعدادات الاتصال',
+            Icons.wifi,
+            Colors.blue,
           ),
 
           _settingsTile(
@@ -4255,6 +4262,7 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.lan,
             title: 'Local',
             subtitle: 'إعداد الاتصال المحلي بالراوتر',
+            color: Colors.blue,
             onTap: () {
               Navigator.push(
                 context,
@@ -4272,11 +4280,9 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.cloud,
             title: 'Cloud',
             subtitle: 'إعداد الاتصال والوصول عبر Cloud',
+            color: Colors.lightBlue,
             onTap: () {
-              _showComingSoon(
-                context,
-                'إعدادات Cloud',
-              );
+              _showComingSoon(context, 'إعدادات Cloud');
             },
           ),
 
@@ -4285,6 +4291,7 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.vpn_lock,
             title: 'VPN',
             subtitle: 'L2TP، PPTP، WireGuard',
+            color: Colors.deepPurple,
             onTap: () {
               Navigator.push(
                 context,
@@ -4295,11 +4302,16 @@ class RouterSettingsHubPage extends StatelessWidget {
             },
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
 
+          // ============================================
+          // إعدادات MikroTik
+          // ============================================
           _sectionTitle(
             context,
-            '📡 إعدادات MikroTik',
+            'إعدادات MikroTik',
+            Icons.settings,
+            Colors.teal,
           ),
 
           _settingsTile(
@@ -4307,6 +4319,7 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.auto_fix_high,
             title: '📶 Hotspot Setup',
             subtitle: 'معالج إعداد Hotspot كامل + الإدارة',
+            color: Colors.orange,
             onTap: () {
               Navigator.push(
                 context,
@@ -4322,30 +4335,7 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.category,
             title: 'Hotspot Profiles',
             subtitle: 'إدارة بروفايلات Hotspot',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => HotspotProfilesPage(
-                    api: api,
-                    host: router['host']?.toString() ?? '',
-                    username: router['username']?.toString() ?? '',
-                    password: router['password']?.toString() ?? '',
-                    port: int.tryParse(
-                      router['port']?.toString() ?? '',
-                    ) ??
-                        8728,
-                  ),
-                ),
-              );
-            },
-          ),
-
-          _settingsTile(
-            context,
-            icon: Icons.list_alt,
-            title: 'Profiles',
-            subtitle: 'عرض وتعديل Hotspot Profiles',
+            color: Colors.teal,
             onTap: () {
               Navigator.push(
                 context,
@@ -4370,18 +4360,18 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.dns,
             title: 'RADIUS',
             subtitle: 'إعداد RADIUS والمصادقة والمحاسبة',
+            color: Colors.indigo,
             onTap: () {
-              _showComingSoon(
-                context,
-                'إعدادات RADIUS',
-              );
+              _showComingSoon(context, 'إعدادات RADIUS');
             },
           ),
+
           _settingsTile(
             context,
             icon: Icons.settings_applications,
             title: 'IP و DHCP و DNS',
             subtitle: 'إدارة شبكات DHCP وإعدادات DNS',
+            color: Colors.cyan,
             onTap: () {
               Navigator.push(
                 context,
@@ -4397,6 +4387,7 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.security,
             title: 'Firewall و NAT',
             subtitle: 'قواعد الجدار الناري وترجمة العناوين',
+            color: Colors.red,
             onTap: () {
               Navigator.push(
                 context,
@@ -4412,6 +4403,7 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.cable,
             title: 'الواجهات (Interfaces)',
             subtitle: 'عرض وإدارة واجهات الشبكة',
+            color: Colors.brown,
             onTap: () {
               Navigator.push(
                 context,
@@ -4422,17 +4414,24 @@ class RouterSettingsHubPage extends StatelessWidget {
             },
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
 
+          // ============================================
+          // إدارة الراوتر
+          // ============================================
           _sectionTitle(
             context,
-            '🛠️ إدارة الراوتر',
+            'إدارة الراوتر',
+            Icons.build,
+            Colors.green,
           ),
+
           _settingsTile(
             context,
             icon: Icons.key,
             title: 'المستخدمون وكلمات المرور',
             subtitle: 'عرض وتعديل مستخدمي MikroTik',
+            color: Colors.amber,
             onTap: () {
               Navigator.push(
                 context,
@@ -4448,12 +4447,12 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.restart_alt,
             title: 'إعادة تشغيل الراوتر',
             subtitle: 'Restart MikroTik',
+            color: Colors.orange,
             onTap: () {
               _confirmAction(
                 context,
                 title: 'إعادة تشغيل الراوتر',
-                message:
-                'هل أنت متأكد أنك تريد إعادة تشغيل الراوتر؟',
+                message: 'هل أنت متأكد أنك تريد إعادة تشغيل الراوتر؟',
                 actionText: 'إعادة التشغيل',
                 onConfirm: () async {
                   try {
@@ -4476,9 +4475,7 @@ class RouterSettingsHubPage extends StatelessWidget {
                         ..hideCurrentSnackBar()
                         ..showSnackBar(
                           SnackBar(
-                            content: Text(
-                              'فشل إعادة تشغيل الراوتر: $e',
-                            ),
+                            content: Text('فشل إعادة تشغيل الراوتر: $e'),
                           ),
                         );
                     }
@@ -4493,12 +4490,12 @@ class RouterSettingsHubPage extends StatelessWidget {
             icon: Icons.power_settings_new,
             title: 'إيقاف تشغيل الراوتر',
             subtitle: 'Shutdown MikroTik',
+            color: Colors.deepOrange,
             onTap: () {
               _confirmAction(
                 context,
                 title: 'إيقاف تشغيل الراوتر',
-                message:
-                'هل أنت متأكد أنك تريد إيقاف تشغيل الراوتر؟',
+                message: 'هل أنت متأكد أنك تريد إيقاف تشغيل الراوتر؟',
                 actionText: 'إيقاف التشغيل',
                 onConfirm: () async {
                   try {
@@ -4521,9 +4518,7 @@ class RouterSettingsHubPage extends StatelessWidget {
                         ..hideCurrentSnackBar()
                         ..showSnackBar(
                           SnackBar(
-                            content: Text(
-                              'فشل إيقاف تشغيل الراوتر: $e',
-                            ),
+                            content: Text('فشل إيقاف تشغيل الراوتر: $e'),
                           ),
                         );
                     }
@@ -4537,8 +4532,8 @@ class RouterSettingsHubPage extends StatelessWidget {
             context,
             icon: Icons.backup,
             title: 'Backup / Restore',
-            subtitle:
-            'النسخ الاحتياطي واستعادة إعدادات الراوتر',
+            subtitle: 'النسخ الاحتياطي واستعادة إعدادات الراوتر',
+            color: Colors.purple,
             onTap: () {
               Navigator.push(
                 context,
@@ -4546,10 +4541,8 @@ class RouterSettingsHubPage extends StatelessWidget {
                   builder: (_) => BackupRestorePage(
                     api: api,
                     host: router['host']?.toString() ?? '',
-                    username:
-                    router['username']?.toString() ?? '',
-                    password:
-                    router['password']?.toString() ?? '',
+                    username: router['username']?.toString() ?? '',
+                    password: router['password']?.toString() ?? '',
                   ),
                 ),
               );
@@ -4560,8 +4553,7 @@ class RouterSettingsHubPage extends StatelessWidget {
             context,
             icon: Icons.warning_amber_rounded,
             title: 'إعادة ضبط المصنع',
-            subtitle:
-            'حذف إعدادات الراوتر وإعادته للوضع الافتراضي',
+            subtitle: 'حذف إعدادات الراوتر وإعادته للوضع الافتراضي',
             danger: true,
             onTap: () {
               _confirmAction(
@@ -4571,10 +4563,7 @@ class RouterSettingsHubPage extends StatelessWidget {
                 'هذا الإجراء خطير وقد يؤدي إلى فقدان إعدادات الراوتر وفقدان الاتصال به.\n\nهل تريد المتابعة؟',
                 actionText: 'متابعة',
                 onConfirm: () {
-                  _showComingSoon(
-                    context,
-                    'إعادة ضبط المصنع',
-                  );
+                  _showComingSoon(context, 'إعادة ضبط المصنع');
                 },
               );
             },
@@ -4589,20 +4578,37 @@ class RouterSettingsHubPage extends StatelessWidget {
   Widget _sectionTitle(
       BuildContext context,
       String title,
+      IconData icon,
+      Color color,
       ) {
     return Padding(
       padding: const EdgeInsets.only(
-        bottom: 8,
-        top: 4,
+        bottom: 10,
+        top: 8,
       ),
-      child: Text(
-        title,
-        style: Theme.of(context)
-            .textTheme
-            .titleLarge
-            ?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -4614,30 +4620,74 @@ class RouterSettingsHubPage extends StatelessWidget {
         required String subtitle,
         required VoidCallback onTap,
         bool danger = false,
+        Color? color,
       }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 4,
-        ),
-        leading: CircleAvatar(
-          child: Icon(
-            icon,
-            color: danger ? Colors.red : null,
+    final baseColor = danger ? Colors.red : (color ?? Colors.blue);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: baseColor.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: baseColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 22,
+                    color: baseColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: danger ? Colors.red : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_left,
+                  color: baseColor.withValues(alpha: 0.6),
+                  size: 22,
+                ),
+              ],
+            ),
           ),
         ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: danger ? Colors.red : null,
-          ),
-        ),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
       ),
     );
   }
