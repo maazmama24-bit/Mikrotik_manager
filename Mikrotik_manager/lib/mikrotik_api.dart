@@ -262,6 +262,246 @@ class MikroTikApi {
     }
   }
   // ===========================================================================
+  // Firewall - Filter Rules
+  // ===========================================================================
+
+  Future<List<Map<String, String>>> getFirewallFilterRules() async {
+    return _print(
+      '/ip/firewall/filter/print',
+      properties: const [
+        '.id',
+        'chain',
+        'action',
+        'protocol',
+        'src-address',
+        'dst-address',
+        'dst-port',
+        'in-interface',
+        'out-interface',
+        'comment',
+        'disabled',
+        'bytes',
+        'packets',
+      ],
+    );
+  }
+
+  Future<void> toggleFirewallFilterRule({
+    required String id,
+    required bool disabled,
+  }) async {
+    await _set(
+      '/ip/firewall/filter/set',
+      id,
+      {'disabled': disabled ? 'yes' : 'no'},
+    );
+  }
+
+  Future<void> deleteFirewallFilterRule(String id) async {
+    await _remove('/ip/firewall/filter/remove', id);
+  }
+
+  Future<void> moveFirewallFilterRule({
+    required String id,
+    required String destination,
+  }) async {
+    await _talk(
+      '/ip/firewall/filter/move',
+      params: {
+        '.id': id,
+        'destination': destination,
+      },
+    );
+  }
+
+  // ===========================================================================
+  // Firewall - NAT Rules
+  // ===========================================================================
+
+  Future<List<Map<String, String>>> getFirewallNatRules() async {
+    return _print(
+      '/ip/firewall/nat/print',
+      properties: const [
+        '.id',
+        'chain',
+        'action',
+        'protocol',
+        'src-address',
+        'dst-address',
+        'dst-port',
+        'to-addresses',
+        'to-ports',
+        'in-interface',
+        'out-interface',
+        'comment',
+        'disabled',
+        'bytes',
+        'packets',
+      ],
+    );
+  }
+
+  Future<String?> addFirewallNatRule({
+    required String chain,
+    required String action,
+    String? protocol,
+    String? srcAddress,
+    String? dstAddress,
+    String? dstPort,
+    String? toAddresses,
+    String? toPorts,
+    String? inInterface,
+    String? outInterface,
+    String? comment,
+  }) async {
+    final values = <String, String>{
+      'chain': chain.trim(),
+      'action': action.trim(),
+    };
+
+    void add(String key, String? value) {
+      if (value != null && value.trim().isNotEmpty) {
+        values[key] = value.trim();
+      }
+    }
+
+    add('protocol', protocol);
+    add('src-address', srcAddress);
+    add('dst-address', dstAddress);
+    add('dst-port', dstPort);
+    add('to-addresses', toAddresses);
+    add('to-ports', toPorts);
+    add('in-interface', inInterface);
+    add('out-interface', outInterface);
+    add('comment', comment);
+
+    return _add('/ip/firewall/nat/add', values);
+  }
+
+  Future<void> updateFirewallNatRule({
+    required String id,
+    String? chain,
+    String? action,
+    String? protocol,
+    String? srcAddress,
+    String? dstAddress,
+    String? dstPort,
+    String? toAddresses,
+    String? toPorts,
+    String? inInterface,
+    String? outInterface,
+    String? comment,
+    bool? disabled,
+  }) async {
+    final values = <String, String>{};
+
+    void add(String key, String? value) {
+      if (value != null) {
+        values[key] = value.trim();
+      }
+    }
+
+    add('chain', chain);
+    add('action', action);
+    add('protocol', protocol);
+    add('src-address', srcAddress);
+    add('dst-address', dstAddress);
+    add('dst-port', dstPort);
+    add('to-addresses', toAddresses);
+    add('to-ports', toPorts);
+    add('in-interface', inInterface);
+    add('out-interface', outInterface);
+    add('comment', comment);
+
+    if (disabled != null) {
+      values['disabled'] = disabled ? 'yes' : 'no';
+    }
+
+    if (values.isEmpty) return;
+
+    await _set('/ip/firewall/nat/set', id, values);
+  }
+
+  Future<void> deleteFirewallNatRule(String id) async {
+    await _remove('/ip/firewall/nat/remove', id);
+  }
+
+  /// إضافة قاعدة Masquerade سريعة.
+  Future<String?> addMasqueradeRule({
+    required String outInterface,
+    String? comment,
+  }) async {
+    return addFirewallNatRule(
+      chain: 'srcnat',
+      action: 'masquerade',
+      outInterface: outInterface,
+      comment: comment ?? 'Masquerade',
+    );
+  }
+
+  // ===========================================================================
+  // Firewall - Mangle Rules
+  // ===========================================================================
+
+  Future<List<Map<String, String>>> getFirewallMangleRules() async {
+    return _print(
+      '/ip/firewall/mangle/print',
+      properties: const [
+        '.id',
+        'chain',
+        'action',
+        'protocol',
+        'src-address',
+        'dst-address',
+        'new-packet-mark',
+        'new-connection-mark',
+        'passthrough',
+        'comment',
+        'disabled',
+        'bytes',
+        'packets',
+      ],
+    );
+  }
+
+  Future<void> toggleFirewallMangleRule({
+    required String id,
+    required bool disabled,
+  }) async {
+    await _set(
+      '/ip/firewall/mangle/set',
+      id,
+      {'disabled': disabled ? 'yes' : 'no'},
+    );
+  }
+
+  Future<void> deleteFirewallMangleRule(String id) async {
+    await _remove('/ip/firewall/mangle/remove', id);
+  }
+
+  // ===========================================================================
+  // Firewall - Connection Tracking
+  // ===========================================================================
+
+  Future<List<Map<String, String>>> getFirewallConnections() async {
+    try {
+      return await _print(
+        '/ip/firewall/connection/print',
+        properties: const [
+          '.id',
+          'protocol',
+          'src-address',
+          'dst-address',
+          'tcp-state',
+          'timeout',
+        ],
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ===========================================================================
   // Hotspot Servers
   // ===========================================================================
 
@@ -603,6 +843,51 @@ class MikroTikApi {
         'on-logout',
       ],
     );
+  }
+
+  /// إضافة Hotspot Profile جديد.
+  Future<String?> addHotspotProfile({
+    required String name,
+    String? addressPool,
+    String? sharedUsers,
+    String? rateLimit,
+    String? sessionTimeout,
+    String? idleTimeout,
+    String? keepaliveTimeout,
+    String? statusAutorefresh,
+    String? queueType,
+    String? parentQueue,
+    String? onLogin,
+    String? onLogout,
+  }) async {
+    final values = <String, String>{
+      'name': name.trim(),
+    };
+
+    void add(String key, String? value) {
+      if (value != null && value.trim().isNotEmpty) {
+        values[key] = value.trim();
+      }
+    }
+
+    add('address-pool', addressPool);
+    add('shared-users', sharedUsers);
+    add('rate-limit', rateLimit);
+    add('session-timeout', sessionTimeout);
+    add('idle-timeout', idleTimeout);
+    add('keepalive-timeout', keepaliveTimeout);
+    add('status-autorefresh', statusAutorefresh);
+    add('queue-type', queueType);
+    add('parent-queue', parentQueue);
+    add('on-login', onLogin);
+    add('on-logout', onLogout);
+
+    return _add('/ip/hotspot/user/profile/add', values);
+  }
+
+  /// حذف Hotspot Profile.
+  Future<void> deleteHotspotProfile(String id) async {
+    await _remove('/ip/hotspot/user/profile/remove', id);
   }
 
   Future<void> updateHotspotProfile({
