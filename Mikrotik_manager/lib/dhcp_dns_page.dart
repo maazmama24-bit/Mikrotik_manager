@@ -79,7 +79,7 @@ class _DhcpTabState extends State<DhcpTab>
   @override
   void initState() {
     super.initState();
-    _subTabController = TabController(length: 3, vsync: this);
+    _subTabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -94,10 +94,12 @@ class _DhcpTabState extends State<DhcpTab>
       children: [
         TabBar(
           controller: _subTabController,
+          isScrollable: true,
           tabs: const [
             Tab(text: 'Leases'),
             Tab(text: 'Networks'),
             Tab(text: 'Servers'),
+            Tab(text: 'Client'),
           ],
         ),
         Expanded(
@@ -107,6 +109,7 @@ class _DhcpTabState extends State<DhcpTab>
               DhcpLeasesTab(api: widget.api),
               DhcpNetworksTab(api: widget.api),
               DhcpServersTab(api: widget.api),
+              DhcpClientsTab(api: widget.api),
             ],
           ),
         ),
