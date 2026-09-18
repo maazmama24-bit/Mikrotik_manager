@@ -382,7 +382,6 @@ class _SavedRoutersPageState extends State<SavedRoutersPage> {
 // =============================================================================
 // Router Dashboard
 // =============================================================================
-
 class RouterDashboardPage extends StatefulWidget {
   final Map<String, dynamic> router;
 
@@ -427,31 +426,20 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
   }
 
   Future<bool> _connect() async {
-    if (_connecting) {
-      return false;
-    }
+    if (_connecting) return false;
 
-    setState(() {
-      _connecting = true;
-    });
+    setState(() => _connecting = true);
 
     try {
       final connected = await _api.connect(
         host: widget.router['host'].toString(),
         username: widget.router['username'].toString(),
         password: widget.router['password'].toString(),
-        port: int.tryParse(
-          widget.router['port'].toString(),
-        ) ??
-            8728,
+        port: int.tryParse(widget.router['port'].toString()) ?? 8728,
       );
 
       if (!connected) {
-        if (mounted) {
-          setState(() {
-            _connected = false;
-          });
-        }
+        if (mounted) setState(() => _connected = false);
 
         _showMessage(
           _api.lastError ?? 'فشل الاتصال بالراوتر',
@@ -461,47 +449,28 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
         return false;
       }
 
-      if (mounted) {
-        setState(() {
-          _connected = true;
-        });
-      }
+      if (mounted) setState(() => _connected = true);
 
       return true;
     } catch (e) {
       _api.disconnect();
 
-      if (mounted) {
-        setState(() {
-          _connected = false;
-        });
-      }
+      if (mounted) setState(() => _connected = false);
 
-      _showMessage(
-        'فشل الاتصال: $e',
-        isError: true,
-      );
+      _showMessage('فشل الاتصال: $e', isError: true);
 
       return false;
     } finally {
-      if (mounted) {
-        setState(() {
-          _connecting = false;
-        });
-      }
+      if (mounted) setState(() => _connecting = false);
     }
   }
 
   Future<void> _connectAndReadInfo() async {
-    if (_connecting || _connected) {
-      return;
-    }
+    if (_connecting || _connected) return;
 
     final connected = await _connect();
 
-    if (!connected) {
-      return;
-    }
+    if (!connected) return;
 
     try {
       final info = await _api.getRouterInfo();
@@ -513,9 +482,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
         _lastUpdate = _currentTime();
       });
 
-      _showMessage(
-        'تم الاتصال بالراوتر بنجاح ✅',
-      );
+      _showMessage('تم الاتصال بالراوتر بنجاح ✅');
     } catch (e) {
       _api.disconnect();
 
@@ -535,13 +502,9 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
   }
 
   Future<void> _updateData() async {
-    if (!_connected || _readingData) {
-      return;
-    }
+    if (!_connected || _readingData) return;
 
-    setState(() {
-      _readingData = true;
-    });
+    setState(() => _readingData = true);
 
     try {
       final info = await _api.getRouterInfo();
@@ -560,21 +523,13 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
         isError: true,
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _readingData = false;
-        });
-      }
+      if (mounted) setState(() => _readingData = false);
     }
   }
 
-  Map<String, dynamic> get _router {
-    return widget.router;
-  }
+  Map<String, dynamic> get _router => widget.router;
 
-  Future<void> _openUsers({
-    String? profile,
-  }) async {
+  Future<void> _openUsers({String? profile}) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -583,10 +538,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
           host: _router['host'].toString(),
           username: _router['username'].toString(),
           password: _router['password'].toString(),
-          port: int.tryParse(
-            _router['port'].toString(),
-          ) ??
-              8728,
+          port: int.tryParse(_router['port'].toString()) ?? 8728,
           profile: profile,
         ),
       ),
@@ -602,10 +554,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
           host: _router['host'].toString(),
           username: _router['username'].toString(),
           password: _router['password'].toString(),
-          port: int.tryParse(
-            _router['port'].toString(),
-          ) ??
-              8728,
+          port: int.tryParse(_router['port'].toString()) ?? 8728,
         ),
       ),
     );
@@ -620,10 +569,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
           host: _router['host'].toString(),
           username: _router['username'].toString(),
           password: _router['password'].toString(),
-          port: int.tryParse(
-            _router['port'].toString(),
-          ) ??
-              8728,
+          port: int.tryParse(_router['port'].toString()) ?? 8728,
         ),
       ),
     );
@@ -641,10 +587,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
     );
   }
 
-  void _showMessage(
-      String message, {
-        bool isError = false,
-      }) {
+  void _showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
@@ -657,98 +600,166 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
       );
   }
 
-  Widget _infoCard({
-    required String title,
-    required String value,
-    required IconData icon,
-  }) {
-    return Card(
-      margin: const EdgeInsets.all(5),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 25,
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    value,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // ===========================================================================
+  // Action Button (Grid)
+  // ===========================================================================
 
   Widget _actionButton({
     required IconData icon,
     required String title,
     required VoidCallback? onPressed,
+    Color? color,
   }) {
-    return Expanded(
-      child: Card(
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 8,
-            ),
-            child: Column(
-              children: [
-                Icon(
+    final enabled = onPressed != null;
+    final baseColor = color ?? Colors.blue;
+
+    return Material(
+      color: enabled
+          ? baseColor.withValues(alpha: 0.08)
+          : Colors.grey.shade100,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: enabled
+                      ? baseColor.withValues(alpha: 0.15)
+                      : Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
                   icon,
-                  size: 30,
+                  size: 24,
+                  color: enabled ? baseColor : Colors.grey,
                 ),
-                const SizedBox(height: 7),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: enabled ? Colors.black87 : Colors.grey,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
+  // ===========================================================================
+  // Stat Card (معلومات الراوتر)
+  // ===========================================================================
+
+  Widget _statCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    Color color = Colors.blue,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: color.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Info Row
+  // ===========================================================================
+
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'monospace',
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
+
   @override
   Widget build(BuildContext context) {
-    final routerName =
-        widget.router['name']?.toString() ?? 'MikroTik';
-
-    final deviceId =
-        widget.router['deviceId']?.toString() ?? '-';
-
+    final routerName = widget.router['name']?.toString() ?? 'MikroTik';
+    final deviceId = widget.router['deviceId']?.toString() ?? '-';
     final connectionMode =
         widget.router['connectionMode']?.toString() ?? 'local';
 
@@ -782,6 +793,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
             icon: const Icon(Icons.dashboard_customize),
           ),
           IconButton(
+            tooltip: 'الإعدادات',
             onPressed: _openSettings,
             icon: const Icon(Icons.settings),
           ),
@@ -789,353 +801,335 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          if (_connected) {
-            await _updateData();
-          }
+          if (_connected) await _updateData();
         },
         child: ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(
-                      _connected
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      color: _connected ? Colors.green : Colors.grey,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _connected ? 'متصل' : 'غير متصل',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            connectionMode == 'cloud'
-                                ? 'اتصال عن بُعد / Cloud'
-                                : 'اتصال محلي',
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                            ),
-                          ),
-                          if (_lastUpdate != null)
-                            Text(
-                              'آخر تحديث: $_lastUpdate',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (!_connected)
-                      FilledButton.icon(
-                        onPressed:
-                        _connecting ? null : _connectAndReadInfo,
-                        icon: _connecting
-                            ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                            : const Icon(Icons.link),
-                        label: Text(
-                          _connecting ? 'جاري الاتصال' : 'اتصال',
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
+            // =========================================================
+            // بطاقة الاتصال
+            // =========================================================
+            _buildConnectionCard(connectionMode),
+
             const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.fingerprint,
-                      size: 30,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Device ID',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            deviceId,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                _actionButton(
-                  icon: Icons.category,
-                  title: 'Hotspot Profiles',
-                  onPressed: _connected ? _openProfiles : null,
-                ),
-                _actionButton(
-                  icon: Icons.people,
-                  title: 'مستخدمو Hotspot',
-                  onPressed: _connected ? () => _openUsers() : null,
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                _actionButton(
-                  icon: Icons.wifi,
-                  title: '🟢 المتصلون الآن',
-                  onPressed: _connected ? _openConnectedUsers : null,
-                ),
-                _actionButton(
-                  icon: Icons.print,
-                  title: 'طباعة الكروت',
-                  onPressed: _connected
-                      ? () {
-                    _showMessage(
-                      'ميزة طباعة الكروت سيتم إضافتها لاحقًا',
-                    );
-                  }
-                      : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                _actionButton(
-                  icon: Icons.settings,
-                  title: 'الإعدادات',
-                  onPressed: _openSettings,
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
+
+            // =========================================================
+            // الإجراءات السريعة
+            // =========================================================
             const Text(
-              'معلومات الراوتر',
+              '⚡ الإجراءات السريعة',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 5),
-            GridView.count(
-              crossAxisCount: 2,
-              crossAxisSpacing: 4,
-              mainAxisSpacing: 4,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 2.2,
+            const SizedBox(height: 8),
+
+            Row(
               children: [
-                _infoCard(
-                  title: 'Identity',
-                  value: _value('identity'),
-                  icon: Icons.badge,
+                Expanded(
+                  child: _actionButton(
+                    icon: Icons.category,
+                    title: 'بروفايلات Hotspot',
+                    color: Colors.purple,
+                    onPressed: _connected ? _openProfiles : null,
+                  ),
                 ),
-                _infoCard(
-                  title: 'Version',
-                  value: _value('version'),
-                  icon: Icons.system_update,
-                ),
-                _infoCard(
-                  title: 'Board',
-                  value: _value('board'),
-                  icon: Icons.memory,
-                ),
-                _infoCard(
-                  title: 'Architecture',
-                  value: _value('architecture'),
-                  icon: Icons.developer_board,
-                ),
-                _infoCard(
-                  title: 'CPU',
-                  value: _value('cpu'),
-                  icon: Icons.speed,
-                ),
-                _infoCard(
-                  title: 'CPU Load',
-                  value: '${_value('cpuLoad')}%',
-                  icon: Icons.show_chart,
-                ),
-                _infoCard(
-                  title: 'Uptime',
-                  value: _value('uptime'),
-                  icon: Icons.timer,
-                ),
-                _infoCard(
-                  title: 'Free Memory',
-                  value: _value('freeMemory'),
-                  icon: Icons.memory,
-                ),
-                _infoCard(
-                  title: 'Total Memory',
-                  value: _value('totalMemory'),
-                  icon: Icons.storage,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _actionButton(
+                    icon: Icons.people,
+                    title: 'مستخدمو Hotspot',
+                    color: Colors.blue,
+                    onPressed: _connected ? () => _openUsers() : null,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _actionButton(
+                    icon: Icons.wifi,
+                    title: 'المتصلون الآن',
+                    color: Colors.green,
+                    onPressed: _connected ? _openConnectedUsers : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _actionButton(
+                    icon: Icons.print,
+                    title: 'طباعة الكروت',
+                    color: Colors.orange,
+                    onPressed: _connected
+                        ? () {
+                      _showMessage(
+                        'افتح "توليد كروت" ثم "طباعة"',
+                      );
+                    }
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _actionButton(
+                    icon: Icons.settings,
+                    title: 'إعدادات الراوتر',
+                    color: Colors.grey,
+                    onPressed: _openSettings,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            // =========================================================
+            // معلومات الراوتر
+            // =========================================================
+            const Text(
+              '📊 معلومات الراوتر',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 2.4,
+              children: [
+                _statCard(
+                  icon: Icons.badge,
+                  label: 'Identity',
+                  value: _value('identity'),
+                  color: Colors.blue,
+                ),
+                _statCard(
+                  icon: Icons.system_update,
+                  label: 'Version',
+                  value: _value('version'),
+                  color: Colors.purple,
+                ),
+                _statCard(
+                  icon: Icons.memory,
+                  label: 'Board',
+                  value: _value('board'),
+                  color: Colors.teal,
+                ),
+                _statCard(
+                  icon: Icons.developer_board,
+                  label: 'Architecture',
+                  value: _value('architecture'),
+                  color: Colors.indigo,
+                ),
+                _statCard(
+                  icon: Icons.speed,
+                  label: 'CPU',
+                  value: _value('cpu'),
+                  color: Colors.orange,
+                ),
+                _statCard(
+                  icon: Icons.show_chart,
+                  label: 'CPU Load',
+                  value: '${_value('cpuLoad')}%',
+                  color: Colors.red,
+                ),
+                _statCard(
+                  icon: Icons.timer,
+                  label: 'Uptime',
+                  value: _value('uptime'),
+                  color: Colors.green,
+                ),
+                _statCard(
+                  icon: Icons.memory,
+                  label: 'Free Memory',
+                  value: _value('freeMemory'),
+                  color: Colors.cyan,
+                ),
+                _statCard(
+                  icon: Icons.storage,
+                  label: 'Total Memory',
+                  value: _value('totalMemory'),
+                  color: Colors.brown,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            // =========================================================
+            // بيانات الاتصال
+            // =========================================================
+            const Text(
+              '🔌 بيانات الاتصال',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'بيانات الاتصال',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _connectionRow(
+                    _infoRow(
+                      Icons.lan,
                       'العنوان',
                       widget.router['host']?.toString() ?? '',
                     ),
-                    _connectionRow(
+                    const Divider(height: 1),
+                    _infoRow(
+                      Icons.person,
                       'المستخدم',
                       widget.router['username']?.toString() ?? '',
                     ),
-                    _connectionRow(
+                    const Divider(height: 1),
+                    _infoRow(
+                      Icons.numbers,
                       'المنفذ',
                       widget.router['port']?.toString() ?? '8728',
+                    ),
+                    const Divider(height: 1),
+                    _infoRow(
+                      Icons.fingerprint,
+                      'Device ID',
+                      deviceId,
                     ),
                   ],
                 ),
               ),
             ),
 
-            if (_connected) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 52,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('قطع الاتصال'),
-                        content: const Text(
-                          'هل تريد قطع الاتصال بالراوتر؟',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('إلغاء'),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.red,
-                            ),
-                            child: const Text('قطع الاتصال'),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirmed != true) return;
-
-                    _api.disconnect();
-
-                    if (!mounted) return;
-
-                    setState(() {
-                      _connected = false;
-                      _routerInfo = null;
-                      _lastUpdate = null;
-                    });
-
-                    _showMessage('تم قطع الاتصال 🔌');
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(
-                      color: Colors.red,
-                      width: 1.5,
-                    ),
-                  ),
-                  icon: const Icon(Icons.link_off),
-                  label: const Text(
-                    'قطع الاتصال بالراوتر',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _connectionRow(
-      String title,
-      String value,
-      ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 4,
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.grey,
+  // ===========================================================================
+  // Connection Card
+  // ===========================================================================
+
+  Widget _buildConnectionCard(String connectionMode) {
+    return Card(
+      elevation: 3,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: _connected
+                ? [Colors.green.shade400, Colors.green.shade600]
+                : [Colors.grey.shade400, Colors.grey.shade600],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _connected ? Icons.check_circle : Icons.cloud_off,
+                color: Colors.white,
+                size: 32,
               ),
             ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _connected ? 'متصل الآن' : 'غير متصل',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    connectionMode == 'cloud'
+                        ? 'اتصال عن بُعد / Cloud'
+                        : 'اتصال محلي',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 13,
+                    ),
+                  ),
+                  if (_lastUpdate != null)
+                    Text(
+                      'آخر تحديث: $_lastUpdate',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
               ),
             ),
-          ),
-        ],
+            if (!_connected)
+              FilledButton.icon(
+                onPressed: _connecting ? null : _connectAndReadInfo,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.green.shade700,
+                ),
+                icon: _connecting
+                    ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.green,
+                  ),
+                )
+                    : const Icon(Icons.link),
+                label: Text(
+                  _connecting ? 'جاري الاتصال' : 'اتصال',
+                ),
+              )
+            else
+              IconButton(
+                onPressed: _readingData ? null : _updateData,
+                tooltip: 'تحديث',
+                icon: _readingData
+                    ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                    : const Icon(
+                  Icons.refresh,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
