@@ -54,7 +54,6 @@ class ApiSingleton extends ChangeNotifier {
 
   Timer? _healthCheckTimer;
 
-
   /// عدد محاولات إعادة الاتصال.
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 3;
@@ -147,6 +146,7 @@ class ApiSingleton extends ChangeNotifier {
 
     _isConnected = false;
     _isConnecting = false;
+    _isReconnecting = false;
 
     if (!silent) {
       _currentRouter = null;
@@ -177,7 +177,6 @@ class ApiSingleton extends ChangeNotifier {
 
     try {
       await _api!.getRouterInfo();
-
     } catch (e) {
       // فشل الاتصال
       await _handleConnectionLoss();
@@ -205,6 +204,7 @@ class ApiSingleton extends ChangeNotifier {
   /// محاولة إعادة الاتصال.
   Future<void> _attemptReconnect() async {
     if (_currentRouter == null) return;
+
     _isReconnecting = true;
     notifyListeners();
 
@@ -216,24 +216,50 @@ class ApiSingleton extends ChangeNotifier {
     ) ??
         8728;
 
-    if (host == null || username == null || password == null) return;
+    if (host == null || username == null || password == null) {
+      _isReconnecting = false;
+      notifyListeners();
+      return;
+    }
+
+    // محاولة فورية أولاً
+    final firstSuccess = await _tryReconnect(
+      host: host,
+      username: username,
+      password: password,
+      port: port,
+    );
+
+    if (firstSuccess) {
+      _isReconnecting = false;
+      notifyListeners();
+      onReconnected?.call();
+      return;
+    }
+
+    // محاولات لاحقة بانتظار
+    _reconnectAttempts = 1;
 
     while (_reconnectAttempts < _maxReconnectAttempts &&
         _isConnected == false) {
       _reconnectAttempts++;
 
-      // انتظر 5، 10، 30 ثانية
-      final waitSeconds = _reconnectAttempts == 1
+      final waitSeconds = _reconnectAttempts == 2
           ? 5
-          : _reconnectAttempts == 2
+          : _reconnectAttempts == 3
           ? 10
           : 30;
 
-      await Future.delayed(Duration(seconds: waitSeconds));
+      // عدّاد انتظار
+      for (int i = waitSeconds; i > 0; i--) {
+        if (_isConnected) {
+          _isReconnecting = false;
+          notifyListeners();
+          return;
+        }
+        await Future.delayed(const Duration(seconds: 1));
+      }
 
-      if (_isConnected) return;
-
-      // جرب الاتصال
       final success = await _tryReconnect(
         host: host,
         username: username,
@@ -249,7 +275,6 @@ class ApiSingleton extends ChangeNotifier {
       }
     }
 
-    // فشلت كل المحاولات
     _isReconnecting = false;
     notifyListeners();
   }
