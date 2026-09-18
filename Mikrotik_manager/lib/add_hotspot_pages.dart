@@ -406,7 +406,7 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
                   ),
 
                   _field(
-                    label: 'كلمة المرور *',
+                    label: 'كلمة المرور (اختياري)',
                     controller: _passwordController,
                     hint: 'اتركها فارغة إذا كانت مثل الاسم',
                     prefixIcon: const Icon(Icons.lock_outline),
