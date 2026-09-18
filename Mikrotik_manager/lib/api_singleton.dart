@@ -245,10 +245,10 @@ class ApiSingleton extends ChangeNotifier {
       _reconnectAttempts++;
 
       final waitSeconds = _reconnectAttempts == 2
-          ? 5
+          ? 3
           : _reconnectAttempts == 3
-          ? 10
-          : 30;
+          ? 5
+          : 10;
 
       // عدّاد انتظار
       for (int i = waitSeconds; i > 0; i--) {
