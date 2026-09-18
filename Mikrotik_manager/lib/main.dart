@@ -160,7 +160,6 @@ class _HomePageState extends State<HomePage> {
 // =============================================================================
 // Saved Routers
 // =============================================================================
-
 class SavedRoutersPage extends StatefulWidget {
   const SavedRoutersPage({super.key});
 
@@ -192,6 +191,29 @@ class _SavedRoutersPageState extends State<SavedRoutersPage> {
   }
 
   Future<void> _deleteRouter(int index) async {
+    final name = _routers[index]['name']?.toString() ?? 'MikroTik';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الراوتر'),
+        content: Text('هل تريد حذف الراوتر "$name" نهائياً؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     await _storage.deleteRouter(index);
 
     if (!mounted) return;
@@ -227,140 +249,30 @@ class _SavedRoutersPageState extends State<SavedRoutersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text('الراوترات المحفوظة'),
+        title: Text('الراوترات (${_routers.length})'),
+        centerTitle: true,
         actions: [
           IconButton(
+            tooltip: 'تحديث',
             onPressed: _loadRouters,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
       body: _loading
-          ? const Center(
-        child: CircularProgressIndicator(),
-      )
+          ? const Center(child: CircularProgressIndicator())
           : _routers.isEmpty
-          ? const Center(
-        child: Text(
-          'لا توجد راوترات محفوظة',
-          style: TextStyle(
-            fontSize: 18,
-          ),
-        ),
-      )
+          ? _buildEmpty()
           : ListView.builder(
         padding: const EdgeInsets.all(12),
         itemCount: _routers.length,
         itemBuilder: (context, index) {
-          final router = _routers[index];
-
-          final name =
-              router['name']?.toString() ?? 'MikroTik';
-
-          final host = router['host']?.toString() ?? '-';
-
-          final deviceId =
-              router['deviceId']?.toString() ?? '-';
-
-          final cloudConnected = _isCloudConnected(router);
-
-          return Card(
-            margin: const EdgeInsets.only(
-              bottom: 10,
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                _openRouter(router);
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 25,
-                          child: Icon(
-                            Icons.router,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight:
-                                  FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                host,
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          cloudConnected
-                              ? Icons.cloud_done
-                              : Icons.cloud_off,
-                          color: cloudConnected
-                              ? Colors.green
-                              : Colors.grey,
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            _deleteRouter(index);
-                          },
-                          icon: const Icon(
-                            Icons.delete,
-                            color: Colors.red,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.cloud_outlined,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 7),
-                        Text(
-                          _connectionMode(router),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          'ID: ${deviceId.length > 18 ? '${deviceId.substring(0, 18)}...' : deviceId}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
+          return _buildRouterCard(_routers[index], index);
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           await Navigator.push(
             context,
@@ -373,7 +285,298 @@ class _SavedRoutersPageState extends State<SavedRoutersPage> {
 
           _loadRouters();
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('إضافة راوتر'),
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.router_outlined,
+                size: 60,
+                color: Colors.blue.shade400,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'لا توجد راوترات محفوظة',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'اضغط "إضافة راوتر" لإضافة أول راوتر',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRouterCard(Map<String, dynamic> router, int index) {
+    final name = router['name']?.toString() ?? 'MikroTik';
+    final host = router['host']?.toString() ?? '-';
+    final deviceId = router['deviceId']?.toString() ?? '-';
+    final cloudConnected = _isCloudConnected(router);
+    final mode = _connectionMode(router);
+    final isCloud = mode == 'Cloud / Remote';
+
+    // لون البطاقة حسب النوع
+    final baseColor = isCloud ? Colors.purple : Colors.blue;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: baseColor.withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: baseColor.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _openRouter(router),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                // ========================================
+                // الرأس: الأيقونة + الاسم + الوضع
+                // ========================================
+                Row(
+                  children: [
+                    // أيقونة الراوتر
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            baseColor.withValues(alpha: 0.7),
+                            baseColor,
+                          ],
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.router,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // الاسم + IP
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (cloudConnected)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: Icon(
+                                    Icons.cloud_done,
+                                    size: 16,
+                                    color: Colors.green.shade600,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.lan,
+                                size: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                host,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade700,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // قائمة
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'open':
+                            _openRouter(router);
+                            break;
+                          case 'delete':
+                            _deleteRouter(index);
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'open',
+                          child: Row(
+                            children: [
+                              Icon(Icons.open_in_new, size: 20),
+                              SizedBox(width: 8),
+                              Text('فتح'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete,
+                                size: 20,
+                                color: Colors.red,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'حذف',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+                Divider(
+                  height: 1,
+                  color: Colors.grey.shade200,
+                ),
+                const SizedBox(height: 10),
+
+                // ========================================
+                // التفاصيل السفلية
+                // ========================================
+                Row(
+                  children: [
+                    // الوضع
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: baseColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isCloud ? Icons.cloud : Icons.lan,
+                            size: 12,
+                            color: baseColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isCloud ? 'سحابي' : 'محلي',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: baseColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Device ID
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.fingerprint,
+                            size: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              deviceId.length > 18
+                                  ? '${deviceId.substring(0, 18)}...'
+                                  : deviceId,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade600,
+                                fontFamily: 'monospace',
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // سهم الفتح
+                    Icon(
+                      Icons.chevron_left,
+                      color: baseColor.withValues(alpha: 0.6),
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
