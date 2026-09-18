@@ -38,6 +38,9 @@ class ApiSingleton extends ChangeNotifier {
   bool _isConnecting = false;
   bool get isConnecting => _isConnecting;
 
+  bool _isReconnecting = false;
+  bool get isReconnecting => _isReconnecting;
+
   String? _lastError;
   String? get lastError => _lastError;
 
@@ -202,6 +205,8 @@ class ApiSingleton extends ChangeNotifier {
   /// محاولة إعادة الاتصال.
   Future<void> _attemptReconnect() async {
     if (_currentRouter == null) return;
+    _isReconnecting = true;
+    notifyListeners();
 
     final host = _currentRouter!['host']?.toString();
     final username = _currentRouter!['username']?.toString();
@@ -237,10 +242,16 @@ class ApiSingleton extends ChangeNotifier {
       );
 
       if (success) {
+        _isReconnecting = false;
+        notifyListeners();
         onReconnected?.call();
         return;
       }
     }
+
+    // فشلت كل المحاولات
+    _isReconnecting = false;
+    notifyListeners();
   }
 
   Future<bool> _tryReconnect({
@@ -267,6 +278,7 @@ class ApiSingleton extends ChangeNotifier {
       _api = api;
       _isConnected = true;
       _reconnectAttempts = 0;
+      _isReconnecting = false;
       notifyListeners();
 
       _startHealthCheck();

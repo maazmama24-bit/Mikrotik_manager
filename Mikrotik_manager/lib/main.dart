@@ -607,6 +607,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
   bool _connecting = false;
   bool _connected = false;
   bool _readingData = false;
+  bool _reconnecting = false;
 
   Map<String, String>? _routerInfo;
 
@@ -637,24 +638,37 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
   void _onSingletonChange() {
     if (!mounted) return;
 
+    // فقدان الاتصال
     if (!_singleton.isConnected && _connected) {
       setState(() {
         _connected = false;
+        _reconnecting = true;
         _routerInfo = null;
         _lastUpdate = null;
       });
 
       _showMessage(
-        'انقطع الاتصال بالراوتر — يُحاول إعادة الاتصال',
+        'انقطع الاتصال — جاري إعادة الاتصال تلقائياً',
         isError: true,
       );
     }
 
+    // نجاح إعادة الاتصال
     if (_singleton.isConnected && !_connected) {
       setState(() {
         _connected = true;
+        _reconnecting = false;
       });
+
+      _showMessage('✅ تم إعادة الاتصال بنجاح');
       _readInfo();
+    }
+
+    // فشل إعادة الاتصال
+    if (!_singleton.isConnected && _reconnecting) {
+      setState(() {
+        _reconnecting = _singleton.isReconnecting;
+      });
     }
   }
 
