@@ -1039,6 +1039,68 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
                 ),
               ),
             ),
+
+            if (_connected) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('قطع الاتصال'),
+                        content: const Text(
+                          'هل تريد قطع الاتصال بالراوتر؟',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('إلغاء'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            child: const Text('قطع الاتصال'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed != true) return;
+
+                    _api.disconnect();
+
+                    if (!mounted) return;
+
+                    setState(() {
+                      _connected = false;
+                      _routerInfo = null;
+                      _lastUpdate = null;
+                    });
+
+                    _showMessage('تم قطع الاتصال 🔌');
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(
+                      color: Colors.red,
+                      width: 1.5,
+                    ),
+                  ),
+                  icon: const Icon(Icons.link_off),
+                  label: const Text(
+                    'قطع الاتصال بالراوتر',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
