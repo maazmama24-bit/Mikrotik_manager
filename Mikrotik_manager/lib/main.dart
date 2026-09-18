@@ -2165,6 +2165,9 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
 
   List<Map<String, String>> _users = [];
 
+  List<Map<String, String>> _allUsers = [];
+
+
   bool _loading = false;
 
   String? _error;
@@ -2203,15 +2206,18 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
     final search = _searchController.text.trim();
 
     if (search.isEmpty) {
-      _showMessage(
-        'اكتب اسم أو رقم الكرت أولاً.',
-        isError: true,
-      );
+      // إذا كان البحث فارغاً — نعرض كل الكروت
+      if (_allUsers.isNotEmpty) {
+        setState(() {
+          _users = List<Map<String, String>>.from(_allUsers);
+          _sortUsers();
+        });
+      }
       return;
     }
 
-    // إذا لم يتم تحميل الكروت — نجلّبها تلقائياً
-    if (_users.isEmpty) {
+    // إذا لم يتم تحميل أي كروت — نجلّبها تلقائياً
+    if (_allUsers.isEmpty) {
       setState(() => _loading = true);
 
       try {
@@ -2222,9 +2228,11 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
         if (!mounted) return;
 
         setState(() {
+          _allUsers = List<Map<String, String>>.from(all);
           _users = List<Map<String, String>>.from(all);
           _allLoaded = true;
           _loading = false;
+          _sortUsers();
         });
       } catch (e) {
         if (!mounted) return;
@@ -2234,10 +2242,10 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
       }
     }
 
-    // البحث المحلي
+    // البحث في القائمة الكاملة دائماً
     final query = search.toLowerCase();
 
-    final filtered = _users.where((user) {
+    final filtered = _allUsers.where((user) {
       final name = (user['name'] ?? '').toLowerCase();
       final password = (user['password'] ?? '').toLowerCase();
       final comment = (user['comment'] ?? '').toLowerCase();
@@ -2261,11 +2269,11 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
 
     setState(() {
       _users = filtered;
+      _sortUsers();
     });
 
     _showMessage('تم العثور على ${filtered.length} كرت ✅');
   }
-
   Future<void> _loadByProfile() async {
     if (_loading) return;
 
@@ -2359,6 +2367,7 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
 
       setState(() {
         _users = List<Map<String, String>>.from(users);
+        _allUsers = List<Map<String, String>>.from(users);
         _sortUsers();
         _loading = false;
         _allLoaded = true;
@@ -2535,6 +2544,7 @@ class _HotspotUsersPageState extends State<HotspotUsersPage> {
 
       setState(() {
         _users = List<Map<String, String>>.from(users);
+        _allUsers = List<Map<String, String>>.from(users);
         _sortUsers();
         _loading = false;
         _allLoaded = true;
