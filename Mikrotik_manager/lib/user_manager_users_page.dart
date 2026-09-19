@@ -111,7 +111,19 @@ class _UserManagerUsersPageState
   Future<void> _openAddUser() async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => _AddUserManagerUserDialog(api: _api),
+      builder: (_) => _UserManagerUserDialog(api: _api),
+    );
+
+    if (result == true) await _loadUsers();
+  }
+
+  Future<void> _openEditUser(Map<String, String> user) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => _UserManagerUserDialog(
+        api: _api,
+        existing: user,
+      ),
     );
 
     if (result == true) await _loadUsers();
@@ -212,8 +224,15 @@ class _UserManagerUsersPageState
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _loading ? null : _openAddUser,
-        icon: const Icon(Icons.person_add),
-        label: const Text('إضافة مستخدم'),
+        backgroundColor: Colors.blue.shade600,
+        icon: const Icon(Icons.person_add, color: Colors.white),
+        label: const Text(
+          'إضافة مستخدم',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -338,7 +357,7 @@ class _UserManagerUsersPageState
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: Colors.blue.withValues(alpha: 0.15),
           width: 1,
@@ -346,106 +365,150 @@ class _UserManagerUsersPageState
         boxShadow: [
           BoxShadow(
             color: Colors.blue.withValues(alpha: 0.05),
-            blurRadius: 6,
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            // أيقونة
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person,
-                color: Colors.blue,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // المعلومات
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'monospace',
-                    ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _openEditUser(user),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // أيقونة
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 3),
-                  Row(
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.blue,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // المعلومات
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
                         ),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.shade50,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          group,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.group,
+                                  size: 10,
+                                  color: Colors.purple.shade600,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  group,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.purple.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.devices,
+                                  size: 10,
+                                  color: Colors.teal.shade600,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  sharedUsers,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.teal.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (attributes.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          attributes,
                           style: TextStyle(
                             fontSize: 10,
-                            color: Colors.purple.shade700,
-                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade500,
+                            fontStyle: FontStyle.italic,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        Icons.devices,
-                        size: 11,
-                        color: Colors.grey.shade600,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        sharedUsers,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
+                      ],
                     ],
                   ),
-                  if (attributes.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      attributes,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey.shade500,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
+                ),
 
-            // زر الحذف
-            IconButton(
-              onPressed: () => _deleteUser(user),
-              tooltip: 'حذف',
-              icon: const Icon(
-                Icons.delete,
-                color: Colors.red,
-              ),
+                // أزرار
+                IconButton(
+                  onPressed: () => _openEditUser(user),
+                  tooltip: 'تعديل',
+                  icon: const Icon(
+                    Icons.edit,
+                    color: Colors.blue,
+                    size: 20,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _deleteUser(user),
+                  tooltip: 'حذف',
+                  icon: const Icon(
+                    Icons.delete,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -453,36 +516,61 @@ class _UserManagerUsersPageState
 }
 
 // =============================================================================
-// Add User Dialog
+// User Dialog (Add / Edit)
 // =============================================================================
 
-class _AddUserManagerUserDialog extends StatefulWidget {
+class _UserManagerUserDialog extends StatefulWidget {
   final MikroTikApi api;
+  final Map<String, String>? existing;
 
-  const _AddUserManagerUserDialog({required this.api});
+  const _UserManagerUserDialog({
+    required this.api,
+    this.existing,
+  });
 
   @override
-  State<_AddUserManagerUserDialog> createState() =>
-      _AddUserManagerUserDialogState();
+  State<_UserManagerUserDialog> createState() =>
+      _UserManagerUserDialogState();
 }
 
-class _AddUserManagerUserDialogState
-    extends State<_AddUserManagerUserDialog> {
+class _UserManagerUserDialogState
+    extends State<_UserManagerUserDialog> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _sharedUsersController =
-  TextEditingController(text: '1');
+  final _sharedUsersController = TextEditingController();
+  final _attributesController = TextEditingController();
 
   bool _saving = false;
   bool _obscure = true;
+
+  bool get _isEditing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (_isEditing) {
+      _nameController.text =
+          widget.existing!['name'] ?? '';
+      _passwordController.text =
+          widget.existing!['password'] ?? '';
+      _sharedUsersController.text =
+          widget.existing!['shared-users'] ?? '1';
+      _attributesController.text =
+          widget.existing!['attributes'] ?? '';
+    } else {
+      _sharedUsersController.text = '1';
+    }
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _passwordController.dispose();
     _sharedUsersController.dispose();
+    _attributesController.dispose();
     super.dispose();
   }
 
@@ -492,29 +580,52 @@ class _AddUserManagerUserDialogState
     setState(() => _saving = true);
 
     try {
-      final id = await widget.api.addUserManagerUser(
-        name: _nameController.text.trim(),
-        password: _passwordController.text,
-        sharedUsers: int.tryParse(
-          _sharedUsersController.text.trim(),
-        ) ??
-            1,
-      );
+      if (_isEditing) {
+        // تعديل — لا يمكن تعديل الاسم
+        final id = widget.existing!['.id'] ?? '';
 
-      if (!mounted) return;
-
-      if (id == null || id.isEmpty) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('فشل الإنشاء'),
-            backgroundColor: Colors.red,
-          ),
+        await widget.api.updateUserManagerUser(
+          id: id,
+          password: _passwordController.text,
+          sharedUsers: int.tryParse(
+            _sharedUsersController.text.trim(),
+          ) ??
+              1,
+          attributes: _attributesController.text.trim(),
         );
-        return;
-      }
 
-      Navigator.pop(context, true);
+        if (!mounted) return;
+        Navigator.pop(context, true);
+      } else {
+        // إضافة
+        final id = await widget.api.addUserManagerUser(
+          name: _nameController.text.trim(),
+          password: _passwordController.text,
+          sharedUsers: int.tryParse(
+            _sharedUsersController.text.trim(),
+          ) ??
+              1,
+          attributes:
+          _attributesController.text.trim().isEmpty
+              ? null
+              : _attributesController.text.trim(),
+        );
+
+        if (!mounted) return;
+
+        if (id == null || id.isEmpty) {
+          setState(() => _saving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('فشل الإنشاء'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -530,69 +641,110 @@ class _AddUserManagerUserDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('➕ إضافة مستخدم'),
+      title: Text(
+        _isEditing ? '✏️ تعديل المستخدم' : '➕ إضافة مستخدم',
+      ),
       content: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'اسم المستخدم *',
-                hintText: 'مثال: 98123',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // اسم المستخدم
+              TextFormField(
+                controller: _nameController,
+                enabled: !_isEditing,
+                decoration: InputDecoration(
+                  labelText: 'اسم المستخدم *',
+                  hintText: 'مثال: 98123',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.person),
+                  filled: _isEditing,
+                  fillColor: _isEditing
+                      ? Colors.grey.shade100
+                      : null,
+                  helperText: _isEditing
+                      ? 'لا يمكن تعديل الاسم'
+                      : null,
+                ),
+                validator: (v) {
+                  if (!_isEditing) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'مطلوب';
+                    }
+                    if (v.trim().length < 3) {
+                      return 'الاسم قصير جداً';
+                    }
+                  }
+                  return null;
+                },
               ),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return 'مطلوب';
-                }
-                if (v.trim().length < 3) {
-                  return 'الاسم قصير جداً';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _passwordController,
-              obscureText: _obscure,
-              decoration: InputDecoration(
-                labelText: 'كلمة المرور (اختياري)',
-                hintText: 'اتركها فارغة للدخول بدون كلمة مرور',
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.lock),
-                suffixIcon: IconButton(
-                  onPressed: () =>
-                      setState(() => _obscure = !_obscure),
-                  icon: Icon(
-                    _obscure
-                        ? Icons.visibility
-                        : Icons.visibility_off,
+
+              const SizedBox(height: 10),
+
+              // كلمة المرور
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscure,
+                decoration: InputDecoration(
+                  labelText: _isEditing
+                      ? 'كلمة المرور الجديدة'
+                      : 'كلمة المرور (اختياري)',
+                  hintText: _isEditing
+                      ? 'اتركها فارغة للإبقاء على الحالية'
+                      : 'اتركها فارغة للدخول بدون كلمة مرور',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    onPressed: () =>
+                        setState(() => _obscure = !_obscure),
+                    icon: Icon(
+                      _obscure
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _sharedUsersController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'عدد الأجهزة',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.devices),
-                helperText: 'عدد الأجهزة المسموح بها لكل كرت',
+
+              const SizedBox(height: 10),
+
+              // عدد الأجهزة
+              TextFormField(
+                controller: _sharedUsersController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'عدد الأجهزة',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.devices),
+                  helperText: 'عدد الأجهزة المسموح بها لكل كرت',
+                ),
+                validator: (v) {
+                  final n = int.tryParse(v?.trim() ?? '');
+                  if (n == null || n < 1) {
+                    return 'رقم غير صالح';
+                  }
+                  return null;
+                },
               ),
-              validator: (v) {
-                final n = int.tryParse(v?.trim() ?? '');
-                if (n == null || n < 1) {
-                  return 'رقم غير صالح';
-                }
-                return null;
-              },
-            ),
-          ],
+
+              const SizedBox(height: 10),
+
+              // Attributes (متقدم)
+              TextFormField(
+                controller: _attributesController,
+                decoration: const InputDecoration(
+                  labelText: 'Attributes (اختياري)',
+                  hintText: 'profile=24h;limitation=500MB',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.tune),
+                  helperText:
+                  'مثال: profile=24h;limitation=500MB',
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -601,17 +753,28 @@ class _AddUserManagerUserDialogState
           _saving ? null : () => Navigator.pop(context, false),
           child: const Text('إلغاء'),
         ),
-        FilledButton(
+        FilledButton.icon(
           onPressed: _saving ? null : _save,
-          child: _saving
+          style: FilledButton.styleFrom(
+            backgroundColor:
+            _isEditing ? Colors.orange : Colors.blue.shade600,
+          ),
+          icon: _saving
               ? const SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
               strokeWidth: 2,
+              color: Colors.white,
             ),
           )
-              : const Text('إضافة'),
+              : Icon(
+            _isEditing ? Icons.save : Icons.add,
+            size: 18,
+          ),
+          label: Text(
+            _isEditing ? 'حفظ' : 'إضافة',
+          ),
         ),
       ],
     );
