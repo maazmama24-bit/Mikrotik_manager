@@ -2592,4 +2592,140 @@ class MikroTikApi {
   Duration get timeout => _timeout;
 
   RouterOSClient? get client => _client;
+
+  // ===========================================================================
+  // User Manager - Sessions
+  // ===========================================================================
+
+  /// جلب Sessions النشطة من User Manager.
+  Future<List<Map<String, String>>> getUserManagerSessions() async {
+    return _print(
+      '/user-manager/session/print',
+      properties: const [
+        '.id',
+        'user',
+        'acct-session-id',
+        'nas-port-type',
+        'nas-port-id',
+        'nas-ip-address',
+        'nas-identifier',
+        'calling-station-id',
+        'user-address',
+        'status',
+        'started',
+        'uptime',
+        'download',
+        'upload',
+        'last-accounting-packet',
+      ],
+    );
+  }
+
+  /// قطع جلسة نشطة في User Manager.
+  Future<void> disconnectUserManagerSession(String id) async {
+    await _remove('/user-manager/session/remove', id);
+  }
+
+  // ===========================================================================
+  // User Manager - Users
+  // ===========================================================================
+
+  /// جلب جميع مستخدمي User Manager.
+  Future<List<Map<String, String>>> getUserManagerUsers() async {
+    return _print(
+      '/user-manager/user/print',
+      properties: const [
+        '.id',
+        'name',
+        'group',
+        'shared-users',
+        'attributes',
+      ],
+    );
+  }
+
+  /// إضافة مستخدم User Manager جديد.
+  Future<String?> addUserManagerUser({
+    required String name,
+    String password = '',
+    String group = 'default',
+    int sharedUsers = 1,
+    String? attributes,
+  }) async {
+    final values = <String, String>{
+      'name': name.trim(),
+      'group': group,
+      'shared-users': sharedUsers.toString(),
+    };
+
+    if (password.isNotEmpty) {
+      values['password'] = password;
+    }
+
+    if (attributes != null && attributes.isNotEmpty) {
+      values['attributes'] = attributes;
+    }
+
+    return _add('/user-manager/user/add', values);
+  }
+
+  /// حذف مستخدم User Manager.
+  Future<void> deleteUserManagerUser(String id) async {
+    await _remove('/user-manager/user/remove', id);
+  }
+
+  // ===========================================================================
+  // User Manager - Profiles
+  // ===========================================================================
+
+  /// جلب Profileات User Manager.
+  Future<List<Map<String, String>>> getUserManagerProfiles() async {
+    return _print(
+      '/user-manager/profile/print',
+      properties: const [
+        '.id',
+        'name',
+        'validity',
+        'name-for-users',
+        'starts-when',
+        'price',
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // User Manager - Limitations
+  // ===========================================================================
+
+  /// جلب Limitations User Manager.
+  Future<List<Map<String, String>>> getUserManagerLimitations() async {
+    return _print(
+      '/user-manager/limitation/print',
+      properties: const [
+        '.id',
+        'name',
+        'transfer-limit',
+        'uptime-limit',
+        'rate-limit-rx',
+        'rate-limit-tx',
+      ],
+    );
+  }
+
+  /// جلب معلومات User Manager العامة.
+  Future<Map<String, String>> getUserManagerInfo() async {
+    final result = await _print(
+      '/user-manager/print',
+      properties: const [
+        'enabled',
+        'authentication-port',
+        'accounting-port',
+        'use-profiles',
+      ],
+    );
+
+    if (result.isEmpty) return {};
+
+    return result.first;
+  }
 }
