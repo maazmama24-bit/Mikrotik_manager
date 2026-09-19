@@ -22,7 +22,10 @@ class PrintCardsPage extends StatefulWidget {
 }
 
 class _PrintCardsPageState extends State<PrintCardsPage> {
-  // إعدادات التخطيط
+  // ===========================================================================
+  // Controllers
+  // ===========================================================================
+
   late final TextEditingController _rowsController;
   late final TextEditingController _colsController;
   late final TextEditingController _fontSizeController;
@@ -30,7 +33,10 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
   late final TextEditingController _cardHeightController;
   late final TextEditingController _networkNameController;
 
-  // خيارات العرض
+  // ===========================================================================
+  // Options
+  // ===========================================================================
+
   bool _showPassword = true;
   bool _showUptime = true;
   bool _showGb = true;
@@ -63,6 +69,10 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     super.dispose();
   }
 
+  // ===========================================================================
+  // Getters
+  // ===========================================================================
+
   int get _rows => int.tryParse(_rowsController.text.trim()) ?? 5;
   int get _cols => int.tryParse(_colsController.text.trim()) ?? 2;
 
@@ -82,11 +92,18 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     return (widget.cards.length / _perPage).ceil();
   }
 
+  // ===========================================================================
+  // Print
+  // ===========================================================================
+
   Future<void> _print() async {
     if (_generating) return;
 
     if (_rows < 1 || _cols < 1) {
-      _showMessage('عدد الصفوف والأعمدة يجب أن يكون 1 على الأقل', isError: true);
+      _showMessage(
+        'عدد الصفوف والأعمدة يجب أن يكون 1 على الأقل',
+        isError: true,
+      );
       return;
     }
 
@@ -95,7 +112,6 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     try {
       final doc = pw.Document();
 
-      // قسّم الكروت إلى صفحات
       final pages = <List<Map<String, String>>>[];
 
       for (int i = 0; i < widget.cards.length; i += _perPage) {
@@ -111,7 +127,6 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
             pageFormat: PdfPageFormat.a4,
             margin: const pw.EdgeInsets.all(20),
             build: (context) {
-              // تقسيم الكروت إلى صفوف
               final rows = <List<Map<String, String>>>[];
 
               for (int i = 0; i < pageCards.length; i += _cols) {
@@ -158,6 +173,10 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
       }
     }
   }
+
+  // ===========================================================================
+  // PDF Card
+  // ===========================================================================
 
   pw.Widget _buildCard(Map<String, String> card) {
     final name = card['name'] ?? '';
@@ -248,6 +267,10 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     );
   }
 
+  // ===========================================================================
+  // Helpers
+  // ===========================================================================
+
   void _showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -260,168 +283,72 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
       );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('🖨️ طباعة الكروت'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+  IconData _iconFromEmoji(String emoji) {
+    switch (emoji) {
+      case '📐':
+        return Icons.aspect_ratio;
+      case '📄':
+        return Icons.description;
+      case '👁️':
+        return Icons.visibility;
+      default:
+        return Icons.circle;
+    }
+  }
+
+  Widget _sectionTitle(String icon, String title, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10, top: 4),
+      child: Row(
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'إجمالي الكروت: ${widget.cards.length}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'كروت في الصفحة: $_perPage',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  Text(
-                    'عدد الصفحات: $_totalPages',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: (color ?? Colors.blue).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _iconFromEmoji(icon),
+              size: 18,
+              color: color ?? Colors.blue,
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          const Text(
-            '📐 التخطيط',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-
-          Row(
-            children: [
-              Expanded(
-                child: _numberField(
-                  label: 'عدد الصفوف',
-                  controller: _rowsController,
-                  min: 1,
-                  max: 15,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _numberField(
-                  label: 'عدد الأعمدة',
-                  controller: _colsController,
-                  min: 1,
-                  max: 6,
-                ),
-              ),
-            ],
-          ),
-
-          _numberField(
-            label: 'حجم الخط (pt)',
-            controller: _fontSizeController,
-            min: 5,
-            max: 30,
-            isDouble: true,
-          ),
-
-          Row(
-            children: [
-              Expanded(
-                child: _numberField(
-                  label: 'عرض الكرت (mm)',
-                  controller: _cardWidthController,
-                  min: 30,
-                  max: 150,
-                  isDouble: true,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _numberField(
-                  label: 'ارتفاع الكرت (mm)',
-                  controller: _cardHeightController,
-                  min: 20,
-                  max: 120,
-                  isDouble: true,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          const Text(
-            '📄 المحتوى',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-
-          TextField(
-            controller: _networkNameController,
-            decoration: const InputDecoration(
-              labelText: 'اسم الشبكة',
-              hintText: 'مثال: شبكة الفيصلية',
-              border: OutlineInputBorder(),
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          SwitchListTile(
-            title: const Text('إظهار اسم الشبكة'),
-            value: _showNetworkName,
-            onChanged: (v) => setState(() => _showNetworkName = v),
-          ),
-          SwitchListTile(
-            title: const Text('إظهار كلمة المرور'),
-            value: _showPassword,
-            onChanged: (v) => setState(() => _showPassword = v),
-          ),
-          SwitchListTile(
-            title: const Text('إظهار المدة'),
-            value: _showUptime,
-            onChanged: (v) => setState(() => _showUptime = v),
-          ),
-          SwitchListTile(
-            title: const Text('إظهار حجم البيانات'),
-            value: _showGb,
-            onChanged: (v) => setState(() => _showGb = v),
-          ),
-
-          const SizedBox(height: 20),
-
-          SizedBox(
-            height: 54,
-            child: FilledButton.icon(
-              onPressed: _generating ? null : _print,
-              icon: _generating
-                  ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-                  : const Icon(Icons.print),
-              label: Text(
-                _generating ? 'جاري التوليد...' : '🖨️ طباعة PDF',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _sectionCard({
+    required Widget child,
+    Color? accent,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: (accent ?? Colors.blue).withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (accent ?? Colors.blue).withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 
@@ -431,6 +358,7 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     required int min,
     required int max,
     bool isDouble = false,
+    IconData? icon,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -443,9 +371,406 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
         decoration: InputDecoration(
           labelText: label,
           hintText: '$min - $max',
-          border: const OutlineInputBorder(),
+          prefixIcon: icon != null ? Icon(icon, size: 18) : null,
+          filled: true,
+          fillColor: Colors.grey.shade50,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.blue, width: 2),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _switchTile({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required Color color,
+    required Function(bool) onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: value
+            ? color.withValues(alpha: 0.08)
+            : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: value
+              ? color.withValues(alpha: 0.3)
+              : Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: SwitchListTile(
+        dense: true,
+        title: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: value ? color : Colors.grey,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: value ? FontWeight.bold : FontWeight.normal,
+                color: value ? color : Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+        value: value,
+        activeThumbColor: color,
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Build
+  // ===========================================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade100,
+      appBar: AppBar(
+        title: const Text('🖨️ طباعة الكروت'),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(14),
+        children: [
+          // ============================================
+          // بطاقة الإحصائيات
+          // ============================================
+          _buildStatsCard(),
+
+          const SizedBox(height: 16),
+
+          // ============================================
+          // التخطيط
+          // ============================================
+          _sectionTitle('📐', 'التخطيط'),
+
+          _sectionCard(
+            accent: Colors.blue,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _numberField(
+                        label: 'عدد الصفوف',
+                        controller: _rowsController,
+                        min: 1,
+                        max: 15,
+                        icon: Icons.table_rows,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _numberField(
+                        label: 'عدد الأعمدة',
+                        controller: _colsController,
+                        min: 1,
+                        max: 6,
+                        icon: Icons.view_column,
+                      ),
+                    ),
+                  ],
+                ),
+
+                _numberField(
+                  label: 'حجم الخط (pt)',
+                  controller: _fontSizeController,
+                  min: 5,
+                  max: 30,
+                  isDouble: true,
+                  icon: Icons.text_fields,
+                ),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _numberField(
+                        label: 'عرض الكرت (mm)',
+                        controller: _cardWidthController,
+                        min: 30,
+                        max: 150,
+                        isDouble: true,
+                        icon: Icons.straighten,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _numberField(
+                        label: 'ارتفاع الكرت (mm)',
+                        controller: _cardHeightController,
+                        min: 20,
+                        max: 120,
+                        isDouble: true,
+                        icon: Icons.height,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ============================================
+          // المحتوى
+          // ============================================
+          _sectionTitle('📄', 'المحتوى', color: Colors.teal),
+
+          _sectionCard(
+            accent: Colors.teal,
+            child: TextField(
+              controller: _networkNameController,
+              decoration: InputDecoration(
+                labelText: 'اسم الشبكة',
+                hintText: 'مثال: شبكة الفيصلية',
+                prefixIcon: const Icon(Icons.wifi, size: 18),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                  const BorderSide(color: Colors.teal, width: 2),
+                ),
+              ),
+            ),
+          ),
+
+          // ============================================
+          // خيارات العرض
+          // ============================================
+          _sectionTitle('👁️', 'خيارات العرض', color: Colors.purple),
+
+          _sectionCard(
+            accent: Colors.purple,
+            child: Column(
+              children: [
+                _switchTile(
+                  icon: Icons.wifi,
+                  title: 'إظهار اسم الشبكة',
+                  value: _showNetworkName,
+                  color: Colors.blue,
+                  onChanged: (v) =>
+                      setState(() => _showNetworkName = v),
+                ),
+                _switchTile(
+                  icon: Icons.lock,
+                  title: 'إظهار كلمة المرور',
+                  value: _showPassword,
+                  color: Colors.purple,
+                  onChanged: (v) => setState(() => _showPassword = v),
+                ),
+                _switchTile(
+                  icon: Icons.timer,
+                  title: 'إظهار المدة',
+                  value: _showUptime,
+                  color: Colors.green,
+                  onChanged: (v) => setState(() => _showUptime = v),
+                ),
+                _switchTile(
+                  icon: Icons.data_usage,
+                  title: 'إظهار حجم البيانات',
+                  value: _showGb,
+                  color: Colors.orange,
+                  onChanged: (v) => setState(() => _showGb = v),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ============================================
+          // زر الطباعة
+          // ============================================
+          SizedBox(
+            height: 56,
+            child: FilledButton.icon(
+              onPressed: _generating ? null : _print,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              icon: _generating
+                  ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+                  : const Icon(Icons.print, size: 22),
+              label: Text(
+                _generating ? 'جاري التوليد...' : '🖨️ طباعة PDF',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Stats Card
+  // ===========================================================================
+
+  Widget _buildStatsCard() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.indigo.shade400, Colors.indigo.shade700],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.indigo.withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.print,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'جاهز للطباعة',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                    Text(
+                      '${widget.cards.length} كرت',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _statsItem(
+                    Icons.grid_view,
+                    'في الصفحة',
+                    '$_perPage',
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 30,
+                  color: Colors.white.withValues(alpha: 0.3),
+                ),
+                Expanded(
+                  child: _statsItem(
+                    Icons.description,
+                    'صفحات',
+                    '$_totalPages',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statsItem(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 }
