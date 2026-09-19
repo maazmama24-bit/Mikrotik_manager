@@ -1,6 +1,7 @@
 import 'models/saved_card.dart';
 import 'services/saved_cards_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'mikrotik_api.dart';
 import 'print_cards_page.dart';
 import 'dart:math';
@@ -219,13 +220,288 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
         return;
       }
 
-      _showMessage('تم إضافة الكرت "$name" بنجاح ✅');
-      Navigator.pop(context, true);
+      // تحديد كلمة المرور النهائية (للإضافة في الوصف)
+      final displayPassword = finalPassword;
+
+      // إظهار Dialog النجاح
+      if (!mounted) return;
+
+      setState(() => _saving = false);
+
+      await _showSuccessDialog(
+        name: name,
+        password: displayPassword,
+        profile: _selectedProfile!,
+        uptime: _limitUptimeController.text.trim(),
+        gb: _limitGbController.text.trim(),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
       _showMessage('فشل إضافة الكرت: $e', isError: true);
     }
+  }
+  /// عرض Dialog نجاح بعد إضافة الكرت.
+  Future<void> _showSuccessDialog({
+    required String name,
+    required String password,
+    required String profile,
+    required String uptime,
+    required String gb,
+  }) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ==========================================
+                // الرأس مع التدرج الأخضر
+                // ==========================================
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.green, Color(0xFF2E7D32)],
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                    ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check_circle,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'تم إنشاء الكرت بنجاح',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'احتفظ بالبيانات التالية',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ==========================================
+                // التفاصيل
+                // ==========================================
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _detailRow(
+                        icon: Icons.person,
+                        label: 'اسم المستخدم',
+                        value: name,
+                        color: Colors.blue,
+                        copyable: true,
+                      ),
+                      const SizedBox(height: 10),
+                      _detailRow(
+                        icon: Icons.lock,
+                        label: 'كلمة المرور',
+                        value: password.isEmpty ? '(فارغة)' : password,
+                        color: Colors.purple,
+                        copyable: password.isNotEmpty,
+                      ),
+                      const SizedBox(height: 10),
+                      _detailRow(
+                        icon: Icons.category,
+                        label: 'البروفايل',
+                        value: profile,
+                        color: Colors.teal,
+                      ),
+                      if (uptime.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        _detailRow(
+                          icon: Icons.timer,
+                          label: 'المدة',
+                          value: uptime,
+                          color: Colors.green,
+                        ),
+                      ],
+                      if (gb.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        _detailRow(
+                          icon: Icons.data_usage,
+                          label: 'البيانات',
+                          value: '$gb GB',
+                          color: Colors.orange,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // ==========================================
+                // الأزرار
+                // ==========================================
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final text = 'اسم المستخدم: $name\n'
+                                'كلمة المرور: ${password.isEmpty ? "(فارغة)" : password}\n'
+                                'البروفايل: $profile'
+                                '${uptime.isNotEmpty ? "\nالمدة: $uptime" : ""}'
+                                '${gb.isNotEmpty ? "\nالبيانات: $gb GB" : ""}';
+
+                            await Clipboard.setData(
+                              ClipboardData(text: text),
+                            );
+
+                            if (!mounted) return;
+
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'تم نسخ التفاصيل 📋',
+                                  ),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                          },
+                          icon: const Icon(Icons.copy, size: 18),
+                          label: const Text('نسخ'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            Navigator.pop(context, true);
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                          ),
+                          icon: const Icon(Icons.check, size: 18),
+                          label: const Text('تم'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// صف تفاصيل في Dialog النجاح.
+  Widget _detailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    bool copyable = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'monospace',
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (copyable)
+            IconButton(
+              iconSize: 18,
+              tooltip: 'نسخ',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: value));
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text('تم نسخ $label'),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+              },
+              icon: Icon(Icons.copy, color: color, size: 18),
+            ),
+        ],
+      ),
+    );
   }
 
   void _showMessage(String message, {bool isError = false}) {
