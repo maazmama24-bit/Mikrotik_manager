@@ -59,11 +59,11 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
   ];
 
   final List<Map<String, String>> _bytesPresets = const [
-    {'label': '500 MB', 'value': '524288000'},
-    {'label': '1 GB', 'value': '1073741824'},
-    {'label': '2 GB', 'value': '2147483648'},
-    {'label': '5 GB', 'value': '5368709120'},
-    {'label': '10 GB', 'value': '10737418240'},
+    {'label': '500 MB', 'value': '0.5'},
+    {'label': '1 GB', 'value': '1'},
+    {'label': '2 GB', 'value': '2'},
+    {'label': '5 GB', 'value': '5'},
+    {'label': '10 GB', 'value': '10'},
     {'label': 'مخصص', 'value': ''},
   ];
 
