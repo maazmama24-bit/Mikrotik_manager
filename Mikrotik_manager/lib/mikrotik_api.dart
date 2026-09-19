@@ -2637,9 +2637,12 @@ class MikroTikApi {
       properties: const [
         '.id',
         'name',
+        'password',
         'group',
         'shared-users',
         'attributes',
+        'comment',
+        'disabled',
       ],
     );
   }
@@ -2649,8 +2652,11 @@ class MikroTikApi {
     required String name,
     String password = '',
     String group = 'default',
+    String? profile,
     int sharedUsers = 1,
     String? attributes,
+    String? comment,
+    bool disabled = false,
   }) async {
     final values = <String, String>{
       'name': name.trim(),
@@ -2662,8 +2668,20 @@ class MikroTikApi {
       values['password'] = password;
     }
 
+    if (profile != null && profile.trim().isNotEmpty) {
+      values['profile'] = profile.trim();
+    }
+
     if (attributes != null && attributes.isNotEmpty) {
       values['attributes'] = attributes;
+    }
+
+    if (comment != null && comment.isNotEmpty) {
+      values['comment'] = comment;
+    }
+
+    if (disabled) {
+      values['disabled'] = 'yes';
     }
 
     return _add('/user-manager/user/add', values);
@@ -2757,6 +2775,34 @@ class MikroTikApi {
     await _remove('/user-manager/profile/remove', id);
   }
 
+  /// تعديل Profile.
+  Future<void> updateUserManagerProfile({
+    required String id,
+    String? name,
+    String? validity,
+    String? startsWhen,
+    String? nameForUsers,
+  }) async {
+    final values = <String, String>{};
+
+    if (name != null && name.trim().isNotEmpty) {
+      values['name'] = name.trim();
+    }
+    if (validity != null && validity.trim().isNotEmpty) {
+      values['validity'] = validity.trim();
+    }
+    if (startsWhen != null && startsWhen.trim().isNotEmpty) {
+      values['starts-when'] = startsWhen.trim();
+    }
+    if (nameForUsers != null) {
+      values['name-for-users'] = nameForUsers.trim();
+    }
+
+    if (values.isEmpty) return;
+
+    await _set('/user-manager/profile/set', id, values);
+  }
+
   // ===========================================================================
   // User Manager - Limitations Management
   // ===========================================================================
@@ -2827,17 +2873,31 @@ class MikroTikApi {
   /// تعديل مستخدم User Manager.
   Future<void> updateUserManagerUser({
     required String id,
+    String? name,
     String? password,
+    String? group,
     int? sharedUsers,
     String? attributes,
+    String? comment,
+    bool? disabled,
   }) async {
     final values = <String, String>{};
 
+    if (name != null && name.trim().isNotEmpty) {
+      values['name'] = name.trim();
+    }
     if (password != null) values['password'] = password;
+    if (group != null && group.trim().isNotEmpty) {
+      values['group'] = group.trim();
+    }
     if (sharedUsers != null) {
       values['shared-users'] = sharedUsers.toString();
     }
     if (attributes != null) values['attributes'] = attributes;
+    if (comment != null) values['comment'] = comment;
+    if (disabled != null) {
+      values['disabled'] = disabled ? 'yes' : 'no';
+    }
 
     if (values.isEmpty) return;
 
