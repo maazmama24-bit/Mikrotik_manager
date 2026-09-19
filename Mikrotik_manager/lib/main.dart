@@ -820,22 +820,75 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
 
   Map<String, dynamic> get _router => widget.router;
 
+  /// شاشة اختيار نوع الكروت (Hotspot / User Manager).
   Future<void> _openUsers({String? profile}) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => HotspotUsersPage(
-          api: _api!,
-          host: _router['host'].toString(),
-          username: _router['username'].toString(),
-          password: _router['password'].toString(),
-          port: int.tryParse(_router['port'].toString()) ?? 8728,
-          profile: profile,
-        ),
-      ),
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (_) => const _CardsManagerTypeDialog(),
     );
+
+    if (!mounted || choice == null) return;
+
+    if (choice == 'hotspot') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HotspotUsersPage(
+            api: _api!,
+            host: _router['host'].toString(),
+            username: _router['username'].toString(),
+            password: _router['password'].toString(),
+            port: int.tryParse(_router['port'].toString()) ?? 8728,
+            profile: profile,
+          ),
+        ),
+      );
+    } else if (choice == 'user_manager') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UserManagerHubPage(api: _api!),
+        ),
+      );
+    }
   }
 
+  /// شاشة اختيار نوع توليد الكروت.
+  Future<void> _openGenerateCards() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (_) => const _GenerateCardsTypeDialog(),
+    );
+
+    if (!mounted || choice == null) return;
+
+    if (choice == 'hotspot') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HotspotCardsHubPage(
+            api: _api!,
+            host: _router['host'].toString(),
+            username: _router['username'].toString(),
+            password: _router['password'].toString(),
+            port: int.tryParse(_router['port'].toString()) ?? 8728,
+          ),
+        ),
+      );
+      if (mounted) setState(() {});
+    } else if (choice == 'user_manager') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UserManagerHubPage(
+            api: _api!,
+            singleTab: 'cards',
+          ),
+        ),
+      );
+      if (mounted) setState(() {});
+    }
+  }
   Future<void> _openProfiles() async {
     await Navigator.push(
       context,
@@ -1135,29 +1188,7 @@ class _RouterDashboardPageState extends State<RouterDashboardPage> {
                     icon: Icons.auto_awesome,
                     title: 'توليد الكروت',
                     color: Colors.deepOrange,
-                    onPressed: _connected
-                        ? () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => HotspotCardsHubPage(
-                            api: _api!,
-                            host: _router['host'].toString(),
-                            username:
-                            _router['username'].toString(),
-                            password:
-                            _router['password'].toString(),
-                            port: int.tryParse(
-                              _router['port'].toString(),
-                            ) ??
-                                8728,
-                          ),
-                        ),
-                      );
-
-                      if (mounted) setState(() {});
-                    }
-                        : null,
+                    onPressed: _connected ? _openGenerateCards : null,
                   ),
                 ),
               ],
@@ -5000,6 +5031,326 @@ class _AddHotspotProfilePageState extends State<AddHotspotProfilePage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+// =============================================================================
+// 🗂️ Cards Manager Type Dialog
+// =============================================================================
+
+class _CardsManagerTypeDialog extends StatelessWidget {
+  const _CardsManagerTypeDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // === Header ===
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF4A6CF7), Color(0xFF3451C7)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.folder_special,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'إدارة الكروت',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+
+              const Text(
+                'اختر نوع الكروت التي تريد إدارتها:',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 14),
+
+              // === Hotspot ===
+              _optionCard(
+                context: context,
+                icon: Icons.wifi,
+                title: 'كروت Hotspot',
+                subtitle: 'إدارة كروت Hotspot العادية\n(hotspot/user)',
+                color: const Color(0xFF2196F3),
+                value: 'hotspot',
+              ),
+
+              const SizedBox(height: 10),
+
+              // === User Manager ===
+              _optionCard(
+                context: context,
+                icon: Icons.router,
+                title: 'كروت User Manager',
+                subtitle: 'إدارة كروت RADIUS المدمجة\n(user-manager/user)',
+                color: const Color(0xFF7C3AED),
+                value: 'user_manager',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _optionCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required String value,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.pop(context, value),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: color.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_left,
+                color: color.withValues(alpha: 0.7),
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+// =============================================================================
+// 🌟 Generate Cards Type Dialog
+// =============================================================================
+
+class _GenerateCardsTypeDialog extends StatelessWidget {
+  const _GenerateCardsTypeDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // === Header ===
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF6F00), Color(0xFFE65100)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'توليد الكروت',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+
+              const Text(
+                'اختر نوع الكروت التي تريد توليدها:',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 14),
+
+              // === Hotspot ===
+              _optionCard(
+                context: context,
+                icon: Icons.wifi,
+                title: 'كروت Hotspot',
+                subtitle:
+                'توليد كروت Hotspot العادية\n(يدعم كرت واحد أو مجموعة)',
+                color: const Color(0xFF2196F3),
+                value: 'hotspot',
+              ),
+
+              const SizedBox(height: 10),
+
+              // === User Manager ===
+              _optionCard(
+                context: context,
+                icon: Icons.router,
+                title: 'كروت User Manager',
+                subtitle:
+                'توليد كروت RADIUS المدمجة\n(30/100/1000 كرت دفعة واحدة)',
+                color: const Color(0xFF7C3AED),
+                value: 'user_manager',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _optionCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required String value,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.pop(context, value),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: color.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_left,
+                color: color.withValues(alpha: 0.7),
+                size: 24,
+              ),
+            ],
+          ),
         ),
       ),
     );

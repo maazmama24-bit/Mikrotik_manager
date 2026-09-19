@@ -1,4 +1,5 @@
 import 'package:router_os_client/router_os_client.dart';
+import 'package:flutter/foundation.dart';
 
 /// طبقة الاتصال العامة مع أجهزة MikroTik.
 ///
@@ -11,6 +12,8 @@ class MikroTikApi {
   RouterOSClient? _client;
 
   String? lastError;
+  /// الاستراتيجية الناجحة في المحاولة السابقة (لتسريع التوليد).
+  int? _preferredUserManagerAttempt;
 
   String? _host;
   String? _username;
@@ -2646,47 +2649,98 @@ class MikroTikApi {
       ],
     );
   }
-
-  /// إضافة مستخدم User Manager جديد.
+  /// إضافة مستخدم User Manager — مع سلسلة محاولات ذكية + تذكّر الناجح.
   Future<String?> addUserManagerUser({
     required String name,
     String password = '',
-    String group = 'default',
+    String? group,
     String? profile,
     int sharedUsers = 1,
     String? attributes,
     String? comment,
     bool disabled = false,
   }) async {
-    final values = <String, String>{
-      'name': name.trim(),
-      'group': group,
-      'shared-users': sharedUsers.toString(),
-    };
+    final attempts = _buildUserAttempts(
+      name: name,
+      password: password,
+      group: group,
+      profile: profile,
+      sharedUsers: sharedUsers,
+      attributes: attributes,
+      comment: comment,
+      disabled: disabled,
+    );
 
-    if (password.isNotEmpty) {
-      values['password'] = password;
+    // ⚡ إذا عرفنا الاستراتيجية الناجحة من قبل، ابدأ منها مباشرة
+    final startIndex = _preferredUserManagerAttempt ?? 0;
+
+    // جرّب الاستراتيجية المفضلة أولاً
+    try {
+      final result =
+      await _add('/user-manager/user/add', attempts[startIndex]);
+      _preferredUserManagerAttempt = startIndex;
+      return result;
+    } catch (e) {
+      debugPrint('⚠️ المحاولة المفضلة ($startIndex) فشلت: $e');
     }
 
-    if (profile != null && profile.trim().isNotEmpty) {
-      values['profile'] = profile.trim();
+    // 🔄 إذا فشلت، جرّب الباقي
+    String? lastError;
+    for (int i = 0; i < attempts.length; i++) {
+      if (i == startIndex) continue;
+
+      try {
+        final result = await _add('/user-manager/user/add', attempts[i]);
+        _preferredUserManagerAttempt = i;
+        debugPrint('✅ تعلّمنا: المحاولة $i هي الأفضل');
+        return result;
+      } catch (e) {
+        lastError = e.toString();
+      }
     }
 
-    if (attributes != null && attributes.isNotEmpty) {
-      values['attributes'] = attributes;
-    }
-
-    if (comment != null && comment.isNotEmpty) {
-      values['comment'] = comment;
-    }
-
-    if (disabled) {
-      values['disabled'] = 'yes';
-    }
-
-    return _add('/user-manager/user/add', values);
+    throw Exception('فشل إنشاء المستخدم.\nآخر خطأ: $lastError');
   }
 
+  /// بناء قائمة المحاولات.
+  List<Map<String, String>> _buildUserAttempts({
+    required String name,
+    required String password,
+    required String? group,
+    required String? profile,
+    required int sharedUsers,
+    required String? attributes,
+    required String? comment,
+    required bool disabled,
+  }) {
+    final base = <String, String>{
+      'name': name.trim(),
+      'shared-users': sharedUsers.toString(),
+    };
+    if (password.isNotEmpty) base['password'] = password;
+    if (attributes != null && attributes.isNotEmpty) {
+      base['attributes'] = attributes;
+    }
+    if (comment != null && comment.isNotEmpty) base['comment'] = comment;
+    if (disabled) base['disabled'] = 'yes';
+
+    final withGroup = Map<String, String>.from(base);
+    if (group != null && group.trim().isNotEmpty) {
+      withGroup['group'] = group.trim();
+    }
+
+    final withGroupAndProfile = Map<String, String>.from(withGroup);
+    if (profile != null && profile.trim().isNotEmpty) {
+      withGroupAndProfile['profile'] = profile.trim();
+    }
+
+    return [
+      withGroupAndProfile, // المحاولة 0: الكل
+      withGroup,           // المحاولة 1: بدون profile
+      base,                // المحاولة 2: بدون group ولا profile
+      base,                // المحاولة 3: نفس السابق (احتياط)
+    ];
+  }
   /// حذف مستخدم User Manager.
   Future<void> deleteUserManagerUser(String id) async {
     await _remove('/user-manager/user/remove', id);
@@ -2773,6 +2827,61 @@ class MikroTikApi {
   /// حذف Profile.
   Future<void> deleteUserManagerProfile(String id) async {
     await _remove('/user-manager/profile/remove', id);
+  }
+  // ===========================================================================
+  // User Manager - Profile ↔ Limitation Links
+  // ===========================================================================
+
+  /// جلب جميع روابط Profile ↔ Limitation.
+  Future<List<Map<String, String>>> getUserManagerProfileLimitations() async {
+    try {
+      return await _print(
+        '/user-manager/profile-limitation/print',
+        properties: const [
+          '.id',
+          'profile',
+          'limitation',
+        ],
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// جلب Limitations المرتبطة بـ Profile معين.
+  Future<List<Map<String, String>>> getLimitationsForProfile(
+      String profileName) async {
+    try {
+      return await _print(
+        '/user-manager/profile-limitation/print',
+        properties: const [
+          '.id',
+          'profile',
+          'limitation',
+        ],
+        queries: {
+          '?profile': profileName,
+        },
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// ربط Profile بـ Limitation.
+  Future<String?> linkProfileToLimitation({
+    required String profileName,
+    required String limitationName,
+  }) async {
+    return _add('/user-manager/profile-limitation/add', {
+      'profile': profileName.trim(),
+      'limitation': limitationName.trim(),
+    });
+  }
+
+  /// فصل الربط (حذف سطر من profile-limitation).
+  Future<void> unlinkProfileFromLimitation(String id) async {
+    await _remove('/user-manager/profile-limitation/remove', id);
   }
 
   /// تعديل Profile.

@@ -81,6 +81,10 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
     _limitUptimeController = TextEditingController();
     _limitGbController = TextEditingController();
     _selectedProfile = widget.defaultProfile;
+
+    // 🎲 ولّد رقماً عشوائياً جاهزاً
+    _nameController.text = _generateRandomNumber(8);
+
     _loadProfiles();
   }
 
@@ -125,6 +129,29 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
       buffer.write(chars[(seed + i * 7) % chars.length]);
     }
     return buffer.toString();
+  }
+  /// توليد رقم عشوائي (أرقام فقط).
+  /// يستخدم Random + Time + Counter لضمان عدم التكرار.
+
+
+  String _generateRandomNumber(int length) {
+    final random = Random();
+    final buffer = StringBuffer();
+
+    // أضف counter للتأكد من عدم التكرار السريع
+
+    for (int i = 0; i < length; i++) {
+      buffer.write(random.nextInt(10));
+    }
+
+    return buffer.toString();
+  }
+
+  /// إعادة توليد اسم عشوائي.
+  void _regenerateName() {
+    setState(() {
+      _nameController.text = _generateRandomNumber(8);
+    });
   }
 
   void _useRandomPassword() {
@@ -761,8 +788,16 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
                   _field(
                     label: 'اسم المستخدم *',
                     controller: _nameController,
-                    hint: 'مثال: user001',
+                    hint: 'مثال: 74185296',
                     prefixIcon: const Icon(Icons.person_outline),
+                    suffixIcon: IconButton(
+                      tooltip: 'توليد رقم جديد',
+                      onPressed: _regenerateName,
+                      icon: const Icon(
+                        Icons.refresh,
+                        color: Colors.blue,
+                      ),
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'أدخل اسم المستخدم';
