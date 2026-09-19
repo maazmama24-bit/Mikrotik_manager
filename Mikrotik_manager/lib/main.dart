@@ -14,6 +14,9 @@ import 'vpn_page.dart';
 import 'hotspot_setup_page.dart';
 import 'firewall_page.dart';
 import 'hotspot_users_page.dart';
+import 'user_manager_sessions_page.dart';
+import 'user_manager_users_page.dart';
+import 'user_manager_hub_page.dart';
 import 'api_singleton.dart';
 
 void main() {
@@ -3864,15 +3867,49 @@ class RouterSettingsHubPage extends StatelessWidget {
 
           _settingsTile(
             context,
-            icon: Icons.dns,
-            title: 'RADIUS',
-            subtitle: 'إعداد RADIUS والمصادقة والمحاسبة',
-            color: Colors.indigo,
+            icon: Icons.wifi_tethering,
+            title: 'User Manager Sessions',
+            subtitle: 'عرض المتصلين النشطين وقطع اتصالهم',
+            color: Colors.green,
             onTap: () {
-              _showComingSoon(context, 'إعدادات RADIUS');
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => UserManagerSessionsPage(api: api),
+                ),
+              );
             },
           ),
-
+          _settingsTile(
+            context,
+            icon: Icons.people,
+            title: 'User Manager Users',
+            subtitle: 'إدارة مستخدمي User Manager (إضافة / حذف)',
+            color: Colors.blue,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => UserManagerUsersPage(api: api),
+                ),
+              );
+            },
+          ),
+          _settingsTile(
+            context,
+            icon: Icons.dashboard_customize,
+            title: 'User Manager Hub',
+            subtitle: 'توليد كروت + Profiles + Limitations + Sessions',
+            color: Colors.teal,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => UserManagerHubPage(api: api),
+                ),
+              );
+            },
+          ),
           _settingsTile(
             context,
             icon: Icons.settings_applications,

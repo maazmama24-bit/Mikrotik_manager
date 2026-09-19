@@ -2711,7 +2711,6 @@ class MikroTikApi {
       ],
     );
   }
-
   /// جلب معلومات User Manager العامة.
   Future<Map<String, String>> getUserManagerInfo() async {
     final result = await _print(
@@ -2727,5 +2726,121 @@ class MikroTikApi {
     if (result.isEmpty) return {};
 
     return result.first;
+  }
+
+  // ===========================================================================
+  // User Manager - Profiles Management
+  // ===========================================================================
+
+  /// إضافة Profile جديد.
+  Future<String?> addUserManagerProfile({
+    required String name,
+    required String validity,
+    String startsWhen = 'first-auth',
+    String? nameForUsers,
+  }) async {
+    final values = <String, String>{
+      'name': name.trim(),
+      'validity': validity.trim(),
+      'starts-when': startsWhen,
+    };
+
+    if (nameForUsers != null && nameForUsers.trim().isNotEmpty) {
+      values['name-for-users'] = nameForUsers.trim();
+    }
+
+    return _add('/user-manager/profile/add', values);
+  }
+
+  /// حذف Profile.
+  Future<void> deleteUserManagerProfile(String id) async {
+    await _remove('/user-manager/profile/remove', id);
+  }
+
+  // ===========================================================================
+  // User Manager - Limitations Management
+  // ===========================================================================
+
+  /// إضافة Limitation جديد.
+  Future<String?> addUserManagerLimitation({
+    required String name,
+    String? transferLimit,
+    String? uptimeLimit,
+    String? rateLimitRx,
+    String? rateLimitTx,
+  }) async {
+    final values = <String, String>{
+      'name': name.trim(),
+    };
+
+    void add(String key, String? value) {
+      if (value != null && value.trim().isNotEmpty) {
+        values[key] = value.trim();
+      }
+    }
+
+    add('transfer-limit', transferLimit);
+    add('uptime-limit', uptimeLimit);
+    add('rate-limit-rx', rateLimitRx);
+    add('rate-limit-tx', rateLimitTx);
+
+    return _add('/user-manager/limitation/add', values);
+  }
+
+  /// حذف Limitation.
+  Future<void> deleteUserManagerLimitation(String id) async {
+    await _remove('/user-manager/limitation/remove', id);
+  }
+
+  /// تعديل Limitation.
+  Future<void> updateUserManagerLimitation({
+    required String id,
+    String? name,
+    String? transferLimit,
+    String? uptimeLimit,
+    String? rateLimitRx,
+    String? rateLimitTx,
+  }) async {
+    final values = <String, String>{};
+
+    void add(String key, String? value) {
+      if (value != null) {
+        values[key] = value.trim();
+      }
+    }
+
+    add('name', name);
+    add('transfer-limit', transferLimit);
+    add('uptime-limit', uptimeLimit);
+    add('rate-limit-rx', rateLimitRx);
+    add('rate-limit-tx', rateLimitTx);
+
+    if (values.isEmpty) return;
+
+    await _set('/user-manager/limitation/set', id, values);
+  }
+
+  // ===========================================================================
+  // User Manager - User Management (Update)
+  // ===========================================================================
+
+  /// تعديل مستخدم User Manager.
+  Future<void> updateUserManagerUser({
+    required String id,
+    String? password,
+    int? sharedUsers,
+    String? attributes,
+  }) async {
+    final values = <String, String>{};
+
+    if (password != null) values['password'] = password;
+    if (sharedUsers != null) {
+      values['shared-users'] = sharedUsers.toString();
+    }
+    if (attributes != null) values['attributes'] = attributes;
+
+    if (values.isEmpty) return;
+
+    await _set('/user-manager/user/set', id, values);
   }
 }
