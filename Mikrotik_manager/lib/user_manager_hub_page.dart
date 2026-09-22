@@ -3461,7 +3461,6 @@ class _SessionsTabState extends State<_SessionsTab>
     super.initState();
     _load();
   }
-
   Future<void> _load() async {
     if (!mounted) return;
     setState(() {
@@ -3476,6 +3475,16 @@ class _SessionsTabState extends State<_SessionsTab>
         widget.api.getUserManagerProfiles(),
         widget.api.getUserManagerLimitations(),
       ]);
+
+      // 🔍 DEBUG: اطبع أول جلسة لمعرفة أسماء الحقول الفعلية
+      final sessions = results[0];
+      debugPrint('🔍 عدد الجلسات: ${sessions.length}');
+      if (sessions.isNotEmpty) {
+        debugPrint('🔍 أول جلسة كاملة: ${sessions.first}');
+        debugPrint('🔍 مفاتيح أول جلسة: ${sessions.first.keys.toList()}');
+      } else {
+        debugPrint('🔍 لا توجد جلسات');
+      }
 
       if (!mounted) return;
       setState(() {

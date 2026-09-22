@@ -14,13 +14,24 @@ import 'vpn_page.dart';
 import 'hotspot_setup_page.dart';
 import 'firewall_page.dart';
 import 'hotspot_users_page.dart';
-import 'user_manager_sessions_page.dart';
 import 'user_manager_users_page.dart';
 import 'user_manager_hub_page.dart';
 import 'api_singleton.dart';
+import 'package:provider/provider.dart';
+import 'theme_provider.dart';
 
-void main() {
-  runApp(const MikrotikManagerApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final themeProvider = ThemeProvider();
+  await themeProvider.load();
+
+  runApp(
+    ChangeNotifierProvider<ThemeProvider>.value(
+      value: themeProvider,
+      child: const MikrotikManagerApp(),
+    ),
+  );
 }
 
 class MikrotikManagerApp extends StatelessWidget {
@@ -28,13 +39,29 @@ class MikrotikManagerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       title: 'MikroTik Manager',
       debugShowCheckedModeBanner: false,
+
+      // ☀️ الوضع الفاتح
       theme: ThemeData(
         useMaterial3: true,
+        brightness: Brightness.light,
         colorSchemeSeed: Colors.blue,
       ),
+
+      // 🌙 الوضع المظلم
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        colorSchemeSeed: Colors.blue,
+      ),
+
+      // 🎯 الوضع الحالي (فاتح / مظلم / تلقائي)
+      themeMode: themeProvider.themeMode,
+
       locale: const Locale('ar', 'SA'),
       supportedLocales: const [
         Locale('ar', 'SA'),
@@ -102,6 +129,21 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('MikroTik Manager'),
         centerTitle: true,
+        actions: [
+          // 🌙 زر تبديل الوضع
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, _) {
+              final isDark = themeProvider.isDark;
+              return IconButton(
+                tooltip: isDark ? 'الوضع الفاتح' : 'الوضع المظلم',
+                onPressed: () => themeProvider.toggle(),
+                icon: Icon(
+                  isDark ? Icons.light_mode : Icons.dark_mode,
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _storage.getRouters(),
@@ -2874,6 +2916,7 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
 
   String? _error;
 
+
   @override
   void initState() {
     super.initState();
@@ -2907,6 +2950,13 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
 
       // جلب أسماء الأجهزة في الخلفية
       _enrichWithHostNames();
+
+      // 🔍 DEBUG
+      debugPrint('🔍 عدد المتصلين: ${users.length}');
+      if (users.isNotEmpty) {
+        debugPrint('🔍 أول متصل: ${users.first}');
+      }
+
     } catch (e) {
       if (!mounted) return;
 
@@ -3298,10 +3348,17 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
                 ],
               ),
               subtitle: Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  '$address • $uptime',
-                  style: const TextStyle(fontSize: 11),
+                padding: const EdgeInsets.only(top: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$address • $uptime',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    // 🎫 الصلاحية
+                    ..._buildValidityInfoFromSession(user),
+                  ],
                 ),
               ),
               children: [
@@ -3494,6 +3551,87 @@ class _ConnectedUsersPageState extends State<ConnectedUsersPage> {
       ],
     );
   }
+  /// 🎫 عرض الصلاحية مباشرة من بيانات الجلسة.
+  List<Widget> _buildValidityInfoFromSession(
+      Map<String, String> session) {
+    final email = session['email'] ?? '';
+    final comment = session['comment'] ?? '';
+    debugPrint('🔍 session email: ${session['email']} | comment: ${session['comment']}');
+
+    if (email.isEmpty) return [];
+
+    final status = MikroTikApi.calculateCardStatus(user: {
+      'email': email,
+      'comment': comment,
+      'disabled': 'no',
+    });
+
+    final state = status['status'] as String;
+    final remainingMinutes = status['remainingMinutes'] as int;
+    final progress = (status['progress'] as double);
+
+    if (state == 'invalid') return [];
+
+    Color color;
+    IconData icon;
+    String label;
+
+    switch (state) {
+      case 'active':
+        color = Colors.green.shade700;
+        icon = Icons.hourglass_bottom;
+        label = 'متبقي: ${MikroTikApi.formatMinutes(remainingMinutes)}';
+        break;
+      case 'expired':
+        color = Colors.red.shade700;
+        icon = Icons.cancel;
+        label = 'انتهت الصلاحية';
+        break;
+      case 'unused':
+        color = Colors.orange.shade700;
+        icon = Icons.pending;
+        label = 'لم يبدأ العد بعد';
+        break;
+      default:
+        return [];
+    }
+
+    return [
+      const SizedBox(height: 4),
+      Row(
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (state == 'active') ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 4,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ];
+  }
+
 
   Widget _detailRow(String title, String value) {
     return Padding(
@@ -3780,7 +3918,7 @@ class RouterSettingsHubPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,   // 👈 جديد
       appBar: AppBar(
         title: const Text('⚙️ إعدادات الراوتر'),
         centerTitle: true,
@@ -3896,21 +4034,7 @@ class RouterSettingsHubPage extends StatelessWidget {
             },
           ),
 
-          _settingsTile(
-            context,
-            icon: Icons.wifi_tethering,
-            title: 'User Manager Sessions',
-            subtitle: 'عرض المتصلين النشطين وقطع اتصالهم',
-            color: Colors.green,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => UserManagerSessionsPage(api: api),
-                ),
-              );
-            },
-          ),
+
           _settingsTile(
             context,
             icon: Icons.people,
@@ -4198,11 +4322,12 @@ class RouterSettingsHubPage extends StatelessWidget {
         Color? color,
       }) {
     final baseColor = danger ? Colors.red : (color ?? Colors.blue);
+    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
@@ -4240,7 +4365,9 @@ class RouterSettingsHubPage extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: danger ? Colors.red : Colors.black87,
+                          color: danger
+                              ? Colors.red
+                              : theme.textTheme.bodyLarge?.color,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -4248,7 +4375,8 @@ class RouterSettingsHubPage extends StatelessWidget {
                         subtitle,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: theme.textTheme.bodySmall?.color
+                              ?.withValues(alpha: 0.7),
                         ),
                       ),
                     ],

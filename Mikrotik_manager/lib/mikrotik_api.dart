@@ -1347,7 +1347,8 @@ class MikroTikApi {
   // ===========================================================================
 
   Future<List<Map<String, String>>> getConnectedUsers() async {
-    return _print(
+    // 1️⃣ اجلب الجلسات النشطة
+    final active = await _print(
       '/ip/hotspot/active/print',
       properties: const [
         '.id',
@@ -1366,6 +1367,43 @@ class MikroTikApi {
         'server',
       ],
     );
+
+    if (active.isEmpty) return [];
+
+    // 2️⃣ اجلب كل الكروت مرة واحدة (بسرعة - only needed fields)
+    try {
+      final users = await _print(
+        '/ip/hotspot/user/print',
+        properties: const ['name', 'email', 'comment'],
+      );
+
+      // 3️⃣ ابنِ خريطة: name → {email, comment}
+      final userMap = <String, Map<String, String>>{};
+      for (final u in users) {
+        final name = u['name'] ?? '';
+        if (name.isNotEmpty) {
+          userMap[name] = {
+            'email': u['email'] ?? '',
+            'comment': u['comment'] ?? '',
+          };
+        }
+      }
+
+      // 4️⃣ ادمج البيانات مع الجلسات
+      for (final session in active) {
+        final userName = session['user'] ?? session['name'] ?? '';
+        final details = userMap[userName];
+        if (details != null) {
+          session['email'] = details['email'] ?? '';
+          session['comment'] = details['comment'] ?? '';
+        }
+      }
+    } catch (e) {
+      // في حال فشل جلب الكروت، نُكمل بدون صلاحية
+      debugPrint('⚠️ فشل جلب بيانات الصلاحية: $e');
+    }
+
+    return active;
   }
 
   Future<void> disconnectHotspotUser(
@@ -2601,29 +2639,26 @@ class MikroTikApi {
   // ===========================================================================
 
   /// جلب Sessions النشطة من User Manager.
+  ///
+  /// ملاحظة: RouterOS v7 User Manager v2 قد يستخدم أسماء حقول مختلفة.
+  /// نجلب كل الحقول (بدون .proplist) ثم نستخرجها بأسماء متعددة.
   Future<List<Map<String, String>>> getUserManagerSessions() async {
-    return _print(
-      '/user-manager/session/print',
-      properties: const [
-        '.id',
-        'user',
-        'acct-session-id',
-        'nas-port-type',
-        'nas-port-id',
-        'nas-ip-address',
-        'nas-identifier',
-        'calling-station-id',
-        'user-address',
-        'status',
-        'started',
-        'uptime',
-        'download',
-        'upload',
-        'last-accounting-packet',
-      ],
-    );
-  }
+    try {
+      // 🎯 جرّب بدون proplist أولاً (يجلب كل الحقول)
+      final result = await _print('/user-manager/session/print');
 
+      debugPrint('📶 عدد الجلسات: ${result.length}');
+      if (result.isNotEmpty) {
+        debugPrint('📶 أول جلسة: ${result.first}');
+      }
+
+      return result;
+    } catch (e) {
+      lastError = e.toString();
+      debugPrint('❌ فشل جلب الجلسات: $e');
+      return [];
+    }
+  }
   /// قطع جلسة نشطة في User Manager.
   Future<void> disconnectUserManagerSession(String id) async {
     await _remove('/user-manager/session/remove', id);
@@ -3011,5 +3046,222 @@ class MikroTikApi {
     if (values.isEmpty) return;
 
     await _set('/user-manager/user/set', id, values);
+  }
+
+// ===========================================================================
+// 🎫 Hotspot Validity Helpers
+// ===========================================================================
+
+/// بناء صيغة Email للصلاحية: `{validity}@bind.com`
+///
+/// مثال:
+///   buildValidityEmail(value: 24, unit: 'h')  → '24h@bind.com'
+///   buildValidityEmail(value: 30, unit: 'd')  → '30d@bind.com'
+static String buildValidityEmail({
+required int value,
+required String unit,
+}) {
+return '$value$unit@bind.com';
+}
+
+/// استخراج الصلاحية من Email.
+///
+/// يعيد:
+///   - value: الرقم (24، 30، ...)
+///   - unit: الوحدة ('h' أو 'd')
+///   - binding: النص بعد @ (مثل 'bind.com')
+static Map<String, String>? parseValidityEmail(String? email) {
+if (email == null || email.isEmpty) return null;
+
+final atIndex = email.indexOf('@');
+if (atIndex <= 0) return null;
+
+final validityPart = email.substring(0, atIndex);
+final binding = email.substring(atIndex + 1);
+
+// استخراج الرقم والوحدة
+final match = RegExp(r'^(\d+)([hdwm])$').firstMatch(validityPart);
+if (match == null) return null;
+
+return {
+'value': match.group(1)!,
+'unit': match.group(2)!,
+'binding': binding,
+};
+}
+
+/// حساب الوقت الكلي بالدقائق من الصلاحية.
+static int validityToMinutes(int value, String unit) {
+switch (unit) {
+case 'm':
+return value;
+case 'h':
+return value * 60;
+case 'd':
+return value * 24 * 60;
+case 'w':
+return value * 7 * 24 * 60;
+default:
+return 0;
+}
+}
+
+/// تنسيق الدقائق إلى نص مقروء (مثل "2 يوم 5 ساعة").
+static String formatMinutes(int minutes) {
+if (minutes <= 0) return 'انتهى';
+
+final days = minutes ~/ (24 * 60);
+final hours = (minutes % (24 * 60)) ~/ 60;
+final mins = minutes % 60;
+
+if (days > 0) {
+if (hours > 0) return '$days يوم $hours ساعة';
+return '$days يوم';
+}
+if (hours > 0) {
+if (mins > 0) return '$hours ساعة $mins دقيقة';
+return '$hours ساعة';
+}
+return '$mins دقيقة';
+}
+
+/// تحليل تاريخ أول دخول من Comment.
+///
+/// الصيغة: `yyyy-MM-dd_HH:mm:ss`
+static DateTime? parseCommentDate(String? comment) {
+if (comment == null || comment.isEmpty) return null;
+
+try {
+// الصيغة: 2026-09-19_13:18:19
+final parts = comment.split('_');
+if (parts.length != 2) return null;
+
+final dateParts = parts[0].split('-');
+final timeParts = parts[1].split(':');
+
+if (dateParts.length != 3 || timeParts.length < 2) return null;
+
+return DateTime(
+int.parse(dateParts[0]),
+int.parse(dateParts[1]),
+int.parse(dateParts[2]),
+int.parse(timeParts[0]),
+int.parse(timeParts[1]),
+timeParts.length > 2 ? int.parse(timeParts[2]) : 0,
+);
+} catch (_) {
+return null;
+}
+}
+
+/// حساب حالة الكرت.
+///
+/// يعيد Map يحتوي:
+///   - status: 'active' | 'expired' | 'unused' | 'invalid'
+///   - totalMinutes: المدة الكلية بالدقائق
+///   - elapsedMinutes: المدة المنقضية
+///   - remainingMinutes: المدة المتبقية
+///   - progress: 0.0 → 1.0
+///   - startDate: تاريخ أول دخول (أو null)
+static Map<String, dynamic> calculateCardStatus({
+required Map<String, String> user,
+}) {
+final email = user['email'];
+final comment = user['comment'];
+final disabled = user['disabled'] == 'yes' || user['disabled'] == 'true';
+
+// تحليل الصلاحية
+final validity = parseValidityEmail(email);
+if (validity == null) {
+return {
+'status': 'invalid',
+'totalMinutes': 0,
+'elapsedMinutes': 0,
+'remainingMinutes': 0,
+'progress': 0.0,
+'startDate': null,
+};
+}
+
+final value = int.tryParse(validity['value'] ?? '') ?? 0;
+final unit = validity['unit'] ?? 'd';
+final totalMinutes = validityToMinutes(value, unit);
+
+// تحليل تاريخ البدء
+final startDate = parseCommentDate(comment);
+
+// إذا لم يبدأ بعد (لم يسجل دخول)
+if (startDate == null) {
+return {
+'status': disabled ? 'expired' : 'unused',
+'totalMinutes': totalMinutes,
+'elapsedMinutes': 0,
+'remainingMinutes': totalMinutes,
+'progress': 0.0,
+'startDate': null,
+};
+}
+
+// حساب المنقضي
+final now = DateTime.now();
+final elapsed = now.difference(startDate).inMinutes;
+final remaining = totalMinutes - elapsed;
+
+// حالة الكرت
+String status;
+if (disabled) {
+status = 'expired';
+} else if (remaining <= 0) {
+status = 'expired';
+} else {
+status = 'active';
+}
+
+// نسبة التقدم (0.0 → 1.0)
+double progress = 0.0;
+if (totalMinutes > 0) {
+progress = (elapsed / totalMinutes).clamp(0.0, 1.0);
+}
+
+return {
+'status': status,
+'totalMinutes': totalMinutes,
+'elapsedMinutes': elapsed,
+'remainingMinutes': remaining > 0 ? remaining : 0,
+'progress': progress,
+'startDate': startDate,
+'value': value,
+'unit': unit,
+};
+}
+  /// جلب كرت Hotspot واحد بالاسم (سريع - بحث مباشر).
+  Future<Map<String, String>?> getHotspotUserByName(String name) async {
+    try {
+      final result = await _print(
+        '/ip/hotspot/user/print',
+        properties: const [
+          '.id',
+          'name',
+          'password',
+          'profile',
+          'email',
+          'comment',
+          'disabled',
+          'limit-uptime',
+          'limit-bytes-total',
+          'uptime',
+          'bytes-in',
+          'bytes-out',
+        ],
+        queries: {
+          '?name': name,
+        },
+      );
+
+      if (result.isEmpty) return null;
+      return result.first;
+    } catch (e) {
+      return null;
+    }
   }
 }

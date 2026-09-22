@@ -49,14 +49,12 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
   bool _saving = false;
   String _passwordMode = 'same';
 
-  final List<Map<String, String>> _durationPresets = const [
-    {'label': '1 ساعة', 'value': '1h'},
-    {'label': '1 يوم', 'value': '1d'},
-    {'label': '1 أسبوع', 'value': '1w'},
-    {'label': '1 شهر', 'value': '30d'},
-    {'label': '3 أشهر', 'value': '90d'},
-    {'label': 'مخصص', 'value': ''},
-  ];
+  // 🎫 الصلاحية
+  final TextEditingController _validityValueController =
+  TextEditingController(text: '24');
+  String _validityUnit = 'h';
+
+
 
   final List<Map<String, String>> _bytesPresets = const [
     {'label': '500 MB', 'value': '0.5'},
@@ -67,7 +65,6 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
     {'label': 'مخصص', 'value': ''},
   ];
 
-  String? _selectedDurationPreset;
   String? _selectedBytesPreset;
 
   @override
@@ -96,6 +93,7 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
     _customPasswordController.dispose();
     _limitUptimeController.dispose();
     _limitGbController.dispose();
+    _validityValueController.dispose();
     super.dispose();
   }
 
@@ -158,16 +156,6 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
     setState(() => _passwordController.text = _generatePassword());
   }
 
-  void _selectDurationPreset(String value) {
-    setState(() {
-      _selectedDurationPreset = value;
-      if (value.isNotEmpty) {
-        _limitUptimeController.text = value;
-      } else {
-        _limitUptimeController.clear();
-      }
-    });
-  }
 
   void _selectBytesPreset(String value) {
     setState(() {
@@ -230,6 +218,16 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
         }
       }
 
+      // 🎫 بناء email من الصلاحية
+      final validityValue =
+          int.tryParse(_validityValueController.text.trim()) ?? 0;
+      final validityEmail = validityValue > 0
+          ? MikroTikApi.buildValidityEmail(
+        value: validityValue,
+        unit: _validityUnit,
+      )
+          : null;
+
       final id = await _api.addHotspotUser(
         name: name,
         password: finalPassword,
@@ -237,6 +235,7 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
         limitUptime: _limitUptimeController.text.trim(),
         limitBytesTotal: limitBytes,
         comment: _commentController.text.trim(),
+        email: validityEmail,
       );
 
       if (!mounted) return;
@@ -553,6 +552,8 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
         return Icons.data_usage;
       case '💬':
         return Icons.comment;
+      case '🎫':
+        return Icons.card_giftcard;
       default:
         return Icons.circle;
     }
@@ -1008,32 +1009,83 @@ class _AddHotspotUserPageState extends State<AddHotspotUserPage> {
             ),
 
             // ============================================
-            // المدة
+            // 🎫 الصلاحية (Script)
             // ============================================
-            _sectionTitle('⏱️', 'المدة', color: Colors.green),
+            _sectionTitle('🎫', 'الصلاحية', color: Colors.deepPurple),
+
+            _sectionCard(
+              accent: Colors.deepPurple,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'تُحفظ في Email (تعمل مع Script Hotspot_Validity)',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _field(
+                          label: 'المدة',
+                          controller: _validityValueController,
+                          hint: '24',
+                          keyboardType: TextInputType.number,
+                          prefixIcon:
+                          const Icon(Icons.timer, size: 18),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _validityUnit,
+                            decoration: const InputDecoration(
+                              labelText: 'الوحدة',
+                              prefixIcon:
+                              Icon(Icons.schedule, size: 18),
+                              border: OutlineInputBorder(),
+                              filled: true,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'm', child: Text('دقائق')),
+                              DropdownMenuItem(
+                                  value: 'h', child: Text('ساعات')),
+                              DropdownMenuItem(
+                                  value: 'd', child: Text('أيام')),
+                              DropdownMenuItem(
+                                  value: 'w', child: Text('أسابيع')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() => _validityUnit = v);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ============================================
+            // ⏱️ المدة (limit-uptime)
+            // ============================================
+            _sectionTitle('⏱️', 'حد المدة', color: Colors.green),
 
             _sectionCard(
               accent: Colors.green,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'اختر مدة سريعة:',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _presetChips(
-                    presets: _durationPresets,
-                    selected: _selectedDurationPreset,
-                    onSelected: _selectDurationPreset,
-                    color: Colors.green,
-                  ),
-                  const SizedBox(height: 12),
                   _field(
-                    label: 'مدة مخصصة',
+                    label: 'مدة مخصصة (اختياري)',
                     controller: _limitUptimeController,
                     hint: 'مثال: 30d، 12h، 1w',
                     prefixIcon: const Icon(Icons.edit, size: 18),
@@ -1177,6 +1229,10 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
   late final TextEditingController _commentController;
   late final TextEditingController _customPasswordController;
   late final TextEditingController _randomLengthController;
+  final TextEditingController _validityValueController =
+  TextEditingController(text: '24');
+
+  String _validityUnit = 'h';
 
   List<Map<String, String>> _profiles = [];
   String? _selectedProfile;
@@ -1210,7 +1266,6 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     _selectedProfile = widget.defaultProfile;
     _loadProfiles();
   }
-
   @override
   void dispose() {
     _prefixController.dispose();
@@ -1222,6 +1277,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     _commentController.dispose();
     _customPasswordController.dispose();
     _randomLengthController.dispose();
+    _validityValueController.dispose();
     super.dispose();
   }
 
@@ -1294,6 +1350,16 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             break;
         }
 
+        // 🎫 بناء email
+        final validityValue =
+            int.tryParse(_validityValueController.text.trim()) ?? 0;
+        final validityEmail = validityValue > 0
+            ? MikroTikApi.buildValidityEmail(
+          value: validityValue,
+          unit: _validityUnit,
+        )
+            : '';
+
         list.add({
           'name': name,
           'password': password,
@@ -1302,6 +1368,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
           'limit-bytes-total': limitBytes,
           'limit-gb': _limitGbController.text.trim(),
           'comment': _commentController.text.trim(),
+          'email': validityEmail,   // 👈 جديد
         });
       }
     } else {
@@ -1340,6 +1407,16 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             break;
         }
 
+        // 🎫 بناء email
+        final validityValue =
+            int.tryParse(_validityValueController.text.trim()) ?? 0;
+        final validityEmail = validityValue > 0
+            ? MikroTikApi.buildValidityEmail(
+          value: validityValue,
+          unit: _validityUnit,
+        )
+            : '';
+
         list.add({
           'name': name,
           'password': password,
@@ -1348,6 +1425,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
           'limit-bytes-total': limitBytes,
           'limit-gb': _limitGbController.text.trim(),
           'comment': _commentController.text.trim(),
+          'email': validityEmail,   // 👈 جديد
         });
       }
     }
@@ -1477,6 +1555,9 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
               comment: card['comment']?.isEmpty == true
                   ? null
                   : card['comment'],
+              email: card['email']?.isEmpty == true
+                  ? null
+                  : card['email'],
             );
 
             return {'success': 'true', 'card': card};
@@ -2114,28 +2195,91 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             ),
 
             // ============================================
-            // القيود
+            // 🎫 الصلاحية (Script)
             // ============================================
-            _sectionTitle('⏱️', 'القيود', color: Colors.green),
+            _sectionTitle('🎫', 'الصلاحية', color: Colors.deepPurple),
+
+            _sectionCard(
+              accent: Colors.deepPurple,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'تُحفظ في Email (تعمل مع Script Hotspot_Validity)',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _field(
+                          label: 'المدة',
+                          controller: _validityValueController,
+                          hint: '24',
+                          keyboardType: TextInputType.number,
+                          enabled: !_generating,
+                          prefixIcon:
+                          const Icon(Icons.timer, size: 18),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _validityUnit,
+                            decoration: const InputDecoration(
+                              labelText: 'الوحدة',
+                              prefixIcon:
+                              Icon(Icons.schedule, size: 18),
+                              border: OutlineInputBorder(),
+                              filled: true,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'm', child: Text('دقائق')),
+                              DropdownMenuItem(
+                                  value: 'h', child: Text('ساعات')),
+                              DropdownMenuItem(
+                                  value: 'd', child: Text('أيام')),
+                              DropdownMenuItem(
+                                  value: 'w', child: Text('أسابيع')),
+                            ],
+                            onChanged: _generating
+                                ? null
+                                : (v) {
+                              if (v != null) {
+                                setState(
+                                        () => _validityUnit = v);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ============================================
+            // 📊 القيود الأخرى
+            // ============================================
+            _sectionTitle('📊', 'قيود أخرى', color: Colors.green),
 
             _sectionCard(
               accent: Colors.green,
               child: Column(
                 children: [
                   _field(
-                    label: 'المدة',
-                    controller: _limitUptimeController,
-                    hint: 'مثال: 30d، 1h',
-                    enabled: !_generating,
-                    prefixIcon: const Icon(Icons.timer, size: 18),
-                  ),
-
-                  _field(
                     label: 'حد البيانات (بـ GB)',
                     controller: _limitGbController,
                     hint: '2 = 2 جيجا، 0.5 = 500 ميجا',
                     keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                    const TextInputType.numberWithOptions(
+                        decimal: true),
                     enabled: !_generating,
                     prefixIcon: const Icon(Icons.data_usage, size: 18),
                   ),
