@@ -242,6 +242,7 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
@@ -268,36 +269,48 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Column(
         children: [
-          _buildTemplateSelector(),
-          const SizedBox(height: 16),
-          _buildPreviewArea(),
-          const SizedBox(height: 20),
-          _buildGridSettings(),
-          const SizedBox(height: 20),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
+          // 🔝 المعاينة الثابتة (لا تتحرك)
+          Container(
+            color: const Color(0xFF0F0F1E),
+            child: _buildPreviewArea(),
+          ),
+
+          // 📜 المحتوى القابل للتمرير
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               children: [
-                Icon(Icons.tune, color: Color(0xFFA78BFA), size: 18),
-                SizedBox(width: 8),
-                Text(
-                  'الحقول',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                _buildTemplateSelector(),
+                const SizedBox(height: 16),
+                _buildGridSettings(),
+                const SizedBox(height: 20),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune,
+                          color: Color(0xFFA78BFA), size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'الحقول',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 12),
+                ..._template!.fields.map((f) => _buildFieldCard(f)),
+                const SizedBox(height: 20),
+                _buildPrintButton(),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          ..._template!.fields.map((f) => _buildFieldCard(f)),
-          const SizedBox(height: 20),
-          _buildPrintButton(),
         ],
       ),
     );
