@@ -15,7 +15,9 @@ class _HotspotValiditySetupPageState
     extends State<HotspotValiditySetupPage>
     with SingleTickerProviderStateMixin {
   bool _installing = false;
+  bool _checking = false;
   Map<String, dynamic>? _result;
+  Map<String, dynamic>? _status;
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
 
@@ -39,12 +41,30 @@ class _HotspotValiditySetupPageState
       curve: Curves.easeOut,
     );
     _animController.forward();
+    _checkStatus();
   }
 
   @override
   void dispose() {
     _animController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkStatus() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+
+    try {
+      final status = await widget.api.checkHotspotValidityStatus();
+      if (!mounted) return;
+      setState(() {
+        _status = status;
+        _checking = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _checking = false);
+    }
   }
 
   Future<void> _install() async {
@@ -66,6 +86,7 @@ class _HotspotValiditySetupPageState
         _installing = false;
         _result = result;
       });
+      await _checkStatus();
     } catch (e) {
       if (!mounted) return;
       setState(() => _installing = false);
@@ -91,6 +112,7 @@ class _HotspotValiditySetupPageState
         _installing = false;
         _result = result;
       });
+      await _checkStatus();
     } catch (e) {
       if (!mounted) return;
       setState(() => _installing = false);
@@ -158,23 +180,25 @@ class _HotspotValiditySetupPageState
         child: SafeArea(
           child: FadeTransition(
             opacity: _fadeAnim,
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 24),
-                _buildHeroCard(),
-                const SizedBox(height: 24),
-                _buildStatusGrid(),
-                const SizedBox(height: 24),
-                if (_result != null) ...[
-                  _buildResultCard(),
+            child: RefreshIndicator(
+              color: const Color(0xFF7C3AED),
+              onRefresh: _checkStatus,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _buildHeader(),
                   const SizedBox(height: 24),
+                  _buildStatusCard(),
+                  const SizedBox(height: 24),
+                  if (_result != null) ...[
+                    _buildResultCard(),
+                    const SizedBox(height: 24),
+                  ],
+                  _buildActionButtons(),
+                  const SizedBox(height: 24),
+                  _buildInfoSection(),
                 ],
-                _buildActionButtons(),
-                const SizedBox(height: 24),
-                _buildInfoSection(),
-              ],
+              ),
             ),
           ),
         ),
@@ -223,25 +247,51 @@ class _HotspotValiditySetupPageState
             ],
           ),
         ),
+        IconButton(
+          onPressed: _checking ? null : _checkStatus,
+          icon: _checking
+              ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFFA78BFA),
+            ),
+          )
+              : const Icon(Icons.refresh, color: Color(0xFFA78BFA)),
+        ),
       ],
     );
   }
 
-  Widget _buildHeroCard() {
+  Widget _buildStatusCard() {
+    final scriptOk = _status?['scriptExists'] == true;
+    final schedOk = _status?['schedulerExists'] == true;
+    final linked = _status?['profilesLinked'] as int? ?? 0;
+    final total = _status?['profilesTotal'] as int? ?? 0;
+    final allOk = scriptOk && schedOk && linked == total && total > 0;
+
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF7C3AED).withValues(alpha: 0.25),
-            const Color(0xFF5B21B6).withValues(alpha: 0.1),
+          colors: allOk
+              ? [
+            const Color(0xFF10B981).withValues(alpha: 0.25),
+            const Color(0xFF10B981).withValues(alpha: 0.05),
+          ]
+              : [
+            const Color(0xFFF59E0B).withValues(alpha: 0.2),
+            const Color(0xFFF59E0B).withValues(alpha: 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+          color: allOk
+              ? const Color(0xFF10B981).withValues(alpha: 0.4)
+              : const Color(0xFFF59E0B).withValues(alpha: 0.4),
         ),
       ),
       child: Column(
@@ -252,76 +302,78 @@ class _HotspotValiditySetupPageState
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                  color: (allOk
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFF59E0B))
+                      .withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.auto_mode,
-                    color: Color(0xFFA78BFA), size: 24),
+                child: Icon(
+                  allOk ? Icons.verified : Icons.warning_amber_rounded,
+                  color: allOk
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFF59E0B),
+                  size: 26,
+                ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'تثبيت بنقرة واحدة',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      allOk ? 'النظام يعمل ✅' : 'النظام غير مكتمل',
+                      style: TextStyle(
+                        color: allOk
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFF59E0B),
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      allOk
+                          ? 'كل المكونات مثبتة وتعمل'
+                          : 'تحقق من المكونات أدناه',
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          const Text(
-            'يُهيّئ نظاماً كاملاً يتتبع صلاحية كروت Hotspot ويُعطّلها تلقائياً عند انتهاء المدة.',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              height: 1.6,
-            ),
+          const SizedBox(height: 18),
+          _statusRow(
+            icon: Icons.code,
+            label: 'السكربت',
+            ok: scriptOk,
+            color: const Color(0xFF06B6D4),
+          ),
+          const SizedBox(height: 10),
+          _statusRow(
+            icon: Icons.schedule,
+            label: 'الجدولة',
+            ok: schedOk,
+            color: const Color(0xFFF59E0B),
+          ),
+          const SizedBox(height: 10),
+          _statusRow(
+            icon: Icons.category,
+            label: 'Hotspot Profiles',
+            ok: linked == total && total > 0,
+            color: const Color(0xFF10B981),
+            value: '$linked / $total',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatusGrid() {
-    final scriptOk = _result?['scriptCreated'] == true;
-    final schedOk = _result?['schedulerCreated'] == true;
-    final linked = _result?['profilesLinked'] as int? ?? 0;
-
-    return Row(
-      children: [
-        Expanded(
-          child: _statusTile(
-            icon: Icons.code,
-            label: 'السكربت',
-            ok: scriptOk,
-            color: const Color(0xFF06B6D4),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _statusTile(
-            icon: Icons.schedule,
-            label: 'الجدولة',
-            ok: schedOk,
-            color: const Color(0xFFF59E0B),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _statusTile(
-            icon: Icons.category,
-            label: 'Profiles',
-            value: '$linked',
-            ok: linked > 0,
-            color: const Color(0xFF10B981),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _statusTile({
+  Widget _statusRow({
     required IconData icon,
     required String label,
     required bool ok,
@@ -329,50 +381,56 @@ class _HotspotValiditySetupPageState
     String? value,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: ok
-              ? color.withValues(alpha: 0.4)
-              : Colors.white.withValues(alpha: 0.08),
-        ),
+        color: Colors.black.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
+      child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: color, size: 16),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
           if (value != null)
             Text(
               value,
               style: TextStyle(
-                color: color,
-                fontSize: 20,
+                color: ok ? color : Colors.white54,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
             )
           else
-            Icon(
-              ok ? Icons.check_circle : Icons.remove_circle_outline,
-              color: ok ? color : Colors.white24,
-              size: 20,
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: ok
+                    ? color.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.05),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                ok ? Icons.check : Icons.close,
+                color: ok ? color : Colors.white38,
+                size: 14,
+              ),
             ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-            ),
-          ),
         ],
       ),
     );
@@ -396,7 +454,7 @@ class _HotspotValiditySetupPageState
             Icon(Icons.check_circle, color: Color(0xFF10B981), size: 22),
             SizedBox(width: 10),
             Text(
-              'تم التثبيت بنجاح',
+              'تمت العملية بنجاح',
               style: TextStyle(
                 color: Color(0xFF10B981),
                 fontSize: 15,

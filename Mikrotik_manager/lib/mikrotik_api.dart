@@ -3342,10 +3342,9 @@ return {
 
   /// ربط سكربت بـ on-login في كل Hotspot Profiles.
   Future<int> linkScriptToAllHotspotProfiles({
-    required String scriptName,
+    required String scriptSource,
   }) async {
     final profiles = await getHotspotProfiles();
-    final onLoginCode = ':$scriptName;';
 
     int count = 0;
     for (final profile in profiles) {
@@ -3354,7 +3353,7 @@ return {
 
       try {
         await _set('/ip/hotspot/user/profile/set', id, {
-          'on-login': onLoginCode,
+          'on-login': scriptSource,
         });
         count++;
       } catch (e) {
@@ -3364,7 +3363,6 @@ return {
 
     return count;
   }
-
   /// إعداد نظام الصلاحية كاملاً (السكربتان + الربط).
   Future<Map<String, dynamic>> setupHotspotValidity({
     required String scriptSource,
@@ -3380,7 +3378,7 @@ return {
       'errors': <String>[],
     };
 
-    // 1️⃣ أضف السكربت (on-login)
+    // 1️⃣ أضف السكربت
     try {
       await addOrUpdateScript(
         name: scriptName,
@@ -3403,10 +3401,10 @@ return {
       result['errors'].add('Scheduler: $e');
     }
 
-    // 3️⃣ اربط السكربت في كل الـ Profiles
+    // 3️⃣ اربط محتوى السكربت مباشرة في on-login
     try {
       final count = await linkScriptToAllHotspotProfiles(
-        scriptName: scriptName,
+        scriptSource: scriptSource,
       );
       result['profilesLinked'] = count;
     } catch (e) {
@@ -3441,15 +3439,17 @@ return {
   /// حذف Scheduler بالاسم.
   Future<bool> deleteSchedulerByName(String name) async {
     try {
-      final existing = await _print(
+      final all = await _print(
         '/system/scheduler/print',
         properties: const ['.id', 'name'],
-        queries: {'?name': name},
       );
 
-      if (existing.isEmpty) return false;
+      final match = all.firstWhere(
+            (s) => (s['name'] ?? '') == name,
+        orElse: () => {},
+      );
 
-      final id = existing.first['.id'];
+      final id = match['.id'];
       if (id == null || id.isEmpty) return false;
 
       await _remove('/system/scheduler/remove', id);
@@ -3459,7 +3459,6 @@ return {
       return false;
     }
   }
-
   /// إزالة ربط السكربت من on-login في كل Hotspot Profiles.
   Future<int> unlinkScriptFromAllHotspotProfiles() async {
     final profiles = await getHotspotProfiles();
@@ -3515,6 +3514,58 @@ return {
     } catch (e) {
       result['errors'].add('Profiles: $e');
     }
+
+    return result;
+  }
+
+  /// فحص حالة نظام الصلاحية في الراوتر.
+  Future<Map<String, dynamic>> checkHotspotValidityStatus({
+    String scriptName = 'Hotspot_Validity_Login',
+    String schedulerName = 'Hotspot_Validity',
+  }) async {
+    final result = <String, dynamic>{
+      'scriptExists': false,
+      'schedulerExists': false,
+      'profilesLinked': 0,
+      'profilesTotal': 0,
+    };
+
+    // 1️⃣ فحص السكربت
+    try {
+      final scripts = await _print(
+        '/system/script/print',
+        properties: const ['.id', 'name'],
+      );
+      result['scriptExists'] = scripts.any(
+            (s) => (s['name'] ?? '') == scriptName,
+      );
+    } catch (_) {}
+
+    // 2️⃣ فحص الجدولة
+    try {
+      final schedulers = await _print(
+        '/system/scheduler/print',
+        properties: const ['.id', 'name'],
+      );
+      result['schedulerExists'] = schedulers.any(
+            (s) => (s['name'] ?? '') == schedulerName,
+      );
+    } catch (_) {}
+
+    // 3️⃣ فحص الربط في Hotspot Profiles
+    try {
+      final profiles = await getHotspotProfiles();
+      result['profilesTotal'] = profiles.length;
+
+      int linked = 0;
+      for (final p in profiles) {
+        final onLogin = (p['on-login'] ?? '').trim();
+        if (onLogin.isNotEmpty) {
+          linked++;
+        }
+      }
+      result['profilesLinked'] = linked;
+    } catch (_) {}
 
     return result;
   }
