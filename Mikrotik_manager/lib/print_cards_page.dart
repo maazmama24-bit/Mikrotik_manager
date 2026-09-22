@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-
-// =============================================================================
-// Print Cards Page
-// =============================================================================
+import 'models/card_template.dart';
+import 'services/template_storage.dart';
 
 class PrintCardsPage extends StatefulWidget {
   final List<Map<String, String>> cards;
@@ -22,138 +20,108 @@ class PrintCardsPage extends StatefulWidget {
 }
 
 class _PrintCardsPageState extends State<PrintCardsPage> {
-  // ===========================================================================
-  // Controllers
-  // ===========================================================================
+  final TemplateStorage _storage = TemplateStorage();
 
-  late final TextEditingController _rowsController;
-  late final TextEditingController _colsController;
-  late final TextEditingController _fontSizeController;
-  late final TextEditingController _cardWidthController;
-  late final TextEditingController _cardHeightController;
-  late final TextEditingController _networkNameController;
-
-  // ===========================================================================
-  // Options
-  // ===========================================================================
-
-  bool _showPassword = true;
-  bool _showUptime = true;
-  bool _showGb = true;
-  bool _showNetworkName = true;
-
-  bool _generating = false;
+  List<CardTemplate> _allTemplates = [];
+  CardTemplate? _template;
+  String? _selectedFieldId;
+  bool _loading = true;
+  bool _printing = false;
 
   @override
   void initState() {
     super.initState();
-
-    _rowsController = TextEditingController(text: '5');
-    _colsController = TextEditingController(text: '2');
-    _fontSizeController = TextEditingController(text: '10');
-    _cardWidthController = TextEditingController(text: '80');
-    _cardHeightController = TextEditingController(text: '50');
-    _networkNameController = TextEditingController(
-      text: widget.networkName,
-    );
+    _loadTemplates();
   }
 
-  @override
-  void dispose() {
-    _rowsController.dispose();
-    _colsController.dispose();
-    _fontSizeController.dispose();
-    _cardWidthController.dispose();
-    _cardHeightController.dispose();
-    _networkNameController.dispose();
-    super.dispose();
+  Future<void> _loadTemplates() async {
+    // 🧹 احذف القوالب القديمة
+    await _storage.saveAll([]);
+
+    if (!mounted) return;
+
+    setState(() {
+      _allTemplates = [];
+      _template = CardTemplate(
+        id: 'default',
+        name: 'افتراضي',
+        networkName: widget.networkName,
+        rows: 16,
+        cols: 6,
+        cardWidth: 31,
+        cardHeight: 17,
+        fields: CardTemplate.defaultFields(),
+      );
+      _loading = false;
+    });
   }
 
-  // ===========================================================================
-  // Getters
-  // ===========================================================================
+  Future<void> _saveTemplate() async {
+    if (_template == null) return;
+    await _storage.saveAll([_template!]);
+  }
 
-  int get _rows => int.tryParse(_rowsController.text.trim()) ?? 5;
-  int get _cols => int.tryParse(_colsController.text.trim()) ?? 2;
-
-  double get _fontSize =>
-      double.tryParse(_fontSizeController.text.trim()) ?? 10;
-
-  double get _cardWidth =>
-      double.tryParse(_cardWidthController.text.trim()) ?? 80;
-
-  double get _cardHeight =>
-      double.tryParse(_cardHeightController.text.trim()) ?? 50;
-
-  int get _perPage => _rows * _cols;
+  int get _perPage =>
+      (_template?.rows ?? 16) * (_template?.cols ?? 6);
 
   int get _totalPages {
     if (_perPage <= 0) return 0;
     return (widget.cards.length / _perPage).ceil();
   }
 
-  // ===========================================================================
-  // Print
-  // ===========================================================================
-
   Future<void> _print() async {
-    if (_generating) return;
+    debugPrint('🔴 _print called');
+    if (_printing || _template == null) return;
 
-    if (_rows < 1 || _cols < 1) {
-      _showMessage(
-        'عدد الصفوف والأعمدة يجب أن يكون 1 على الأقل',
-        isError: true,
-      );
-      return;
-    }
-
-    setState(() => _generating = true);
+    setState(() => _printing = true);
 
     try {
+      await _saveTemplate();
+
       final doc = pw.Document();
+      final template = _template!;
+      final perPage = _perPage;
 
       final pages = <List<Map<String, String>>>[];
-
-      for (int i = 0; i < widget.cards.length; i += _perPage) {
-        final end = (i + _perPage > widget.cards.length)
+      for (int i = 0; i < widget.cards.length; i += perPage) {
+        final end = (i + perPage > widget.cards.length)
             ? widget.cards.length
-            : i + _perPage;
+            : i + perPage;
         pages.add(widget.cards.sublist(i, end));
       }
+
+      final cols = template.cols;
 
       for (final pageCards in pages) {
         doc.addPage(
           pw.Page(
             pageFormat: PdfPageFormat.a4,
-            margin: const pw.EdgeInsets.all(20),
+            margin: const pw.EdgeInsets.all(6),
             build: (context) {
-              final rows = <List<Map<String, String>>>[];
+              final cardW = template.cardWidth * PdfPageFormat.mm;
+              final cardH = template.cardHeight * PdfPageFormat.mm;
 
-              for (int i = 0; i < pageCards.length; i += _cols) {
-                final end = (i + _cols > pageCards.length)
+              // قسّم إلى صفوف
+              final rows = <List<Map<String, String>>>[];
+              for (int i = 0; i < pageCards.length; i += cols) {
+                final end = (i + cols > pageCards.length)
                     ? pageCards.length
-                    : i + _cols;
+                    : i + cols;
                 rows.add(pageCards.sublist(i, end));
               }
 
               return pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: rows.map((rowCards) {
-                  return pw.Padding(
-                    padding: const pw.EdgeInsets.only(bottom: 4),
-                    child: pw.Row(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: rowCards.map((card) {
-                        return pw.Padding(
-                          padding: const pw.EdgeInsets.only(right: 4),
-                          child: pw.SizedBox(
-                            width: _cardWidth,
-                            height: _cardHeight,
-                            child: _buildCard(card),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                  return pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: rowCards.map((card) {
+                      return pw.SizedBox(
+                        width: cardW,
+                        height: cardH,
+                        child: _buildPdfCard(card, template),
+                      );
+                    }).toList(),
                   );
                 }).toList(),
               );
@@ -162,105 +130,230 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
         );
       }
 
-      await Printing.layoutPdf(
-        onLayout: (format) async => doc.save(),
-      );
+      await Printing.layoutPdf(onLayout: (format) async => doc.save());
+
+      if (!mounted) return;
+      _snack('تم الحفظ والطباعة ✅');
     } catch (e) {
-      _showMessage('فشل توليد PDF: $e', isError: true);
+      if (!mounted) return;
+      _snack('فشل: $e', isError: true);
     } finally {
-      if (mounted) {
-        setState(() => _generating = false);
-      }
+      if (mounted) setState(() => _printing = false);
     }
   }
-
-  // ===========================================================================
-  // PDF Card
-  // ===========================================================================
-
-  pw.Widget _buildCard(Map<String, String> card) {
-    final name = card['name'] ?? '';
-    final password = card['password'] ?? '';
-    final uptime = card['limit-uptime'] ?? '';
-    final gb = card['limit-gb'] ?? '';
-    final networkName = _networkNameController.text.trim();
+  pw.Widget _buildPdfCard(
+      Map<String, String> card, CardTemplate template) {
+    final visibleFields =
+    template.fields.where((f) => f.visible).toList();
+    final cardW = template.cardWidth * PdfPageFormat.mm;
+    final cardH = template.cardHeight * PdfPageFormat.mm;
 
     return pw.Container(
       decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.black, width: 1),
-        borderRadius: pw.BorderRadius.circular(4),
+        border: pw.Border.all(color: PdfColors.black, width: 0.4),
+        borderRadius: pw.BorderRadius.circular(1),
       ),
-      padding: const pw.EdgeInsets.all(6),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      child: pw.Stack(
+        children: visibleFields.map((field) {
+          final value = _fieldValue(field, card);
+          if (value.isEmpty) return pw.SizedBox();
+
+          // حجم الخط النهائي
+          final fontSize = field.fontSize * 0.4;
+
+          // عرض ضخم جداً — يمنع الالتفاف
+          final textWidth = value.length * fontSize * 1.2 + 20;
+
+          return pw.Positioned(
+            left: field.x * cardW - (textWidth / 2),
+            top: field.y * cardH - (fontSize / 2),
+            child: pw.SizedBox(
+              width: textWidth,
+              child: pw.Text(
+                value,
+                maxLines: 1,
+                softWrap: false,
+                overflow: pw.TextOverflow.visible,
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(
+                  fontSize: fontSize * 2,
+                  fontWeight:
+                  field.fontStyle.toLowerCase().contains('bold')
+                      ? pw.FontWeight.bold
+                      : pw.FontWeight.normal,
+                  fontStyle:
+                  field.fontStyle.toLowerCase().contains('italic')
+                      ? pw.FontStyle.italic
+                      : pw.FontStyle.normal,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _fieldValue(
+      TemplateField field, Map<String, String> card) {
+    if (field.isCustom) return field.customValue;
+
+    switch (field.key) {
+      case 'network':
+        return widget.networkName;
+      case 'name':
+        return card['name'] ?? '';
+      case 'password':
+        return card['password'] ?? '';
+      case 'limit-uptime':
+        return card['limit-uptime'] ?? '';
+      case 'limit-gb':
+        return card['limit-gb'] ?? '';
+      case 'comment':
+        return card['comment'] ?? '';
+      default:
+        return '';
+    }
+  }
+
+  void _updateField(TemplateField updated) {
+    final index =
+    _template!.fields.indexWhere((f) => f.id == updated.id);
+    if (index == -1) return;
+    setState(() {
+      _template!.fields[index] = updated;
+    });
+  }
+
+  void _snack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor:
+          isError ? Colors.red : const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0F0F1E),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF1A1A2E),
+          foregroundColor: Colors.white,
+          title: const Text('🖨️ طباعة الكروت'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFFA78BFA)),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1A1A2E),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          '🖨️ طباعة الكروت',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: Column(
         children: [
-          if (_showNetworkName && networkName.isNotEmpty)
-            pw.Text(
-              networkName,
-              style: pw.TextStyle(
-                fontSize: _fontSize + 1,
-                fontWeight: pw.FontWeight.bold,
+          _buildTemplateSelector(),
+          Expanded(flex: 5, child: _buildPreviewArea()),
+          _buildFieldsList(),
+          _buildPrintButton(),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Template Selector
+  // ===========================================================================
+
+  Widget _buildTemplateSelector() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)],
               ),
-              maxLines: 1,
-              overflow: pw.TextOverflow.clip,
+              borderRadius: BorderRadius.circular(10),
             ),
-          pw.Divider(thickness: 0.5, height: 4),
-          pw.Row(
-            children: [
-              pw.Text(
-                'User: ',
-                style: pw.TextStyle(fontSize: _fontSize - 1),
-              ),
-              pw.Expanded(
-                child: pw.Text(
-                  name,
-                  style: pw.TextStyle(
-                    fontSize: _fontSize + 2,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                ),
-              ),
-            ],
+            child: const Icon(Icons.layers,
+                color: Colors.white, size: 18),
           ),
-          if (_showPassword && password.isNotEmpty)
-            pw.Row(
-              children: [
-                pw.Text(
-                  'Pass: ',
-                  style: pw.TextStyle(fontSize: _fontSize - 1),
-                ),
-                pw.Expanded(
-                  child: pw.Text(
-                    password,
-                    style: pw.TextStyle(
-                      fontSize: _fontSize + 2,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                  ),
-                ),
-              ],
+          const SizedBox(width: 10),
+          const Text(
+            'القالب:',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
             ),
-          pw.Row(
-            children: [
-              if (_showUptime && uptime.isNotEmpty)
-                pw.Expanded(
-                  child: pw.Text(
-                    '⏱ $uptime',
-                    style: pw.TextStyle(fontSize: _fontSize - 1),
-                  ),
-                ),
-              if (_showGb && gb.isNotEmpty)
-                pw.Expanded(
-                  child: pw.Text(
-                    '📊 $gb GB',
-                    style: pw.TextStyle(fontSize: _fontSize - 1),
-                    textAlign: pw.TextAlign.right,
-                  ),
-                ),
-            ],
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _allTemplates.isEmpty
+                ? const Text(
+              'افتراضي (غير محفوظ)',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            )
+                : DropdownButton<String>(
+              value: _template?.name,
+              isExpanded: true,
+              dropdownColor: const Color(0xFF1A1A2E),
+              underline: const SizedBox(),
+              icon: const Icon(Icons.arrow_drop_down,
+                  color: Color(0xFFA78BFA)),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+              items: _allTemplates
+                  .map((t) => DropdownMenuItem(
+                value: t.name,
+                child: Text(t.name),
+              ))
+                  .toList(),
+              onChanged: (name) {
+                if (name == null) return;
+                final t = _allTemplates
+                    .firstWhere((x) => x.name == name);
+                setState(() {
+                  _template = t.copy();
+                  _selectedFieldId = null;
+                });
+              },
+            ),
           ),
         ],
       ),
@@ -268,56 +361,329 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
   }
 
   // ===========================================================================
-  // Helpers
+  // Preview
   // ===========================================================================
 
-  void _showMessage(String message, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: isError ? Colors.red : null,
-        ),
-      );
+  Widget _buildPreviewArea() {
+    final template = _template!;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          _buildStatsBar(),
+          const SizedBox(height: 10),
+          Expanded(
+            child: Center(
+              child: AspectRatio(
+                aspectRatio:
+                template.cardWidth / template.cardHeight,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cardW = constraints.maxWidth;
+                    final cardH = constraints.maxHeight;
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                            color: const Color(0xFF7C3AED), width: 2),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF7C3AED)
+                                .withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: template.fields
+                            .where((f) => f.visible)
+                            .map((field) => _buildDraggableField(
+                            field, cardW, cardH))
+                            .toList(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  IconData _iconFromEmoji(String emoji) {
-    switch (emoji) {
-      case '📐':
-        return Icons.aspect_ratio;
-      case '📄':
-        return Icons.description;
-      case '👁️':
-        return Icons.visibility;
+  Widget _buildStatsBar() {
+    return Container(
+      padding:
+      const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        children: [
+          _statItem(Icons.credit_card, 'كرت',
+              '${widget.cards.length}'),
+          Container(width: 1, height: 22, color: Colors.white12),
+          _statItem(Icons.grid_view, 'صفحة', '$_perPage'),
+          Container(width: 1, height: 22, color: Colors.white12),
+          _statItem(Icons.description, 'صفحات', '$_totalPages'),
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(IconData icon, String label, String value) {
+    return Expanded(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: const Color(0xFFA78BFA), size: 14),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDraggableField(
+      TemplateField field, double cardW, double cardH) {
+    final isSelected = _selectedFieldId == field.id;
+    final value = _displayValue(field);
+    final fontSize = field.fontSize * 0.5;
+
+    // عرض ديناميكي — يمنع الانكسار
+    final dynamicWidth = value.length * fontSize * 0.65 + 20;
+
+    return Positioned(
+      left: field.x * cardW - (dynamicWidth / 2),
+      top: field.y * cardH - (fontSize / 2) - 4,
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedFieldId = field.id),
+        onPanUpdate: (details) {
+          setState(() {
+            final newX =
+                (field.x * cardW + details.delta.dx) / cardW;
+            final newY =
+                (field.y * cardH + details.delta.dy) / cardH;
+            field.x = newX.clamp(0.0, 1.0);
+            field.y = newY.clamp(0.0, 1.0);
+            _selectedFieldId = field.id;
+          });
+        },
+        child: Container(
+          width: dynamicWidth,
+          padding:
+          const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF7C3AED).withValues(alpha: 0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            border: isSelected
+                ? Border.all(
+                color: const Color(0xFF7C3AED), width: 1.5)
+                : null,
+          ),
+          child: Text(
+            value,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.visible,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: _fontWeight(field.fontStyle),
+              fontStyle: _fontStyle(field.fontStyle),
+              color: Colors.black,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _displayValue(TemplateField field) {
+    if (field.isCustom) return field.customValue;
+
+    final firstCard = widget.cards.isNotEmpty
+        ? widget.cards.first
+        : <String, String>{};
+
+    switch (field.key) {
+      case 'network':
+        return widget.networkName;
+      case 'name':
+        return firstCard['name'] ?? '1234567';
+      case 'password':
+        return firstCard['password'] ?? '***';
+      case 'limit-uptime':
+        return firstCard['limit-uptime'] ?? '8 يوم';
+      case 'limit-gb':
+        return firstCard['limit-gb'] ?? '5GB';
+      case 'note1':
+        return firstCard['note1'] ?? 'ملاحظة 1';
+      case 'note2':
+        return firstCard['note2'] ?? 'ملاحظة 2';
+      case 'comment':
+        return firstCard['comment'] ?? 'ملاحظة';
       default:
-        return Icons.circle;
+        return field.label;
     }
   }
 
-  Widget _sectionTitle(String icon, String title, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10, top: 4),
-      child: Row(
+  FontWeight _fontWeight(String style) {
+    return style.toLowerCase().contains('bold')
+        ? FontWeight.bold
+        : FontWeight.normal;
+  }
+
+  FontStyle _fontStyle(String style) {
+    return style.toLowerCase().contains('italic')
+        ? FontStyle.italic
+        : FontStyle.normal;
+  }
+
+  // ===========================================================================
+  // Fields List (Bottom)
+  // ===========================================================================
+
+  Widget _buildFieldsList() {
+    return Container(
+      height: 320,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: Column(
         children: [
+          const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.all(6),
+            width: 40,
+            height: 4,
             decoration: BoxDecoration(
-              color: (color ?? Colors.blue).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _iconFromEmoji(icon),
-              size: 18,
-              color: color ?? Colors.blue,
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(height: 12),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.tune, color: Color(0xFFA78BFA), size: 16),
+              SizedBox(width: 8),
+              Text(
+                'الحقول',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          _buildGridSettings(),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: _template!.fields.length,
+              itemBuilder: (ctx, i) {
+                return _buildFieldCard(_template!.fields[i]);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildGridSettings() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.grid_view,
+                  color: Color(0xFFA78BFA), size: 16),
+              SizedBox(width: 8),
+              Text(
+                'إعدادات الصفحة',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _gridRow(
+                  icon: Icons.table_rows,
+                  label: 'صفوف',
+                  value: _template!.rows,
+                  min: 1,
+                  max: 30,
+                  onChanged: (v) {
+                    setState(() => _template!.rows = v);
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _gridRow(
+                  icon: Icons.view_column,
+                  label: 'أعمدة',
+                  value: _template!.cols,
+                  min: 1,
+                  max: 20,
+                  onChanged: (v) {
+                    setState(() => _template!.cols = v);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           Text(
-            title,
+            '${_template!.rows * _template!.cols} كرت في الصفحة',
             style: const TextStyle(
-              fontSize: 16,
+              color: Color(0xFF10B981),
+              fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -326,451 +692,346 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     );
   }
 
-  Widget _sectionCard({
-    required Widget child,
-    Color? accent,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: (accent ?? Colors.blue).withValues(alpha: 0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: (accent ?? Colors.blue).withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-
-  Widget _numberField({
+  Widget _gridRow({
+    required IconData icon,
     required String label,
-    required TextEditingController controller,
+    required int value,
     required int min,
     required int max,
-    bool isDouble = false,
-    IconData? icon,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        keyboardType: isDouble
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : TextInputType.number,
-        onChanged: (_) => setState(() {}),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: '$min - $max',
-          prefixIcon: icon != null ? Icon(icon, size: 18) : null,
-          filled: true,
-          fillColor: Colors.grey.shade50,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.blue, width: 2),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _switchTile({
-    required IconData icon,
-    required String title,
-    required bool value,
-    required Color color,
-    required Function(bool) onChanged,
+    required ValueChanged<int> onChanged,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: value
-            ? color.withValues(alpha: 0.08)
-            : Colors.grey.shade100,
+        color: Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: value
-              ? color.withValues(alpha: 0.3)
-              : Colors.grey.shade300,
-          width: 1,
-        ),
       ),
-      child: SwitchListTile(
-        dense: true,
-        title: Row(
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: value ? color : Colors.grey,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: value ? FontWeight.bold : FontWeight.normal,
-                color: value ? color : Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
-        value: value,
-        activeThumbColor: color,
-        onChanged: onChanged,
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // Build
-  // ===========================================================================
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: const Text('🖨️ طباعة الكروت'),
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(14),
+      child: Row(
         children: [
-          // ============================================
-          // بطاقة الإحصائيات
-          // ============================================
-          _buildStatsCard(),
-
-          const SizedBox(height: 16),
-
-          // ============================================
-          // التخطيط
-          // ============================================
-          _sectionTitle('📐', 'التخطيط'),
-
-          _sectionCard(
-            accent: Colors.blue,
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _numberField(
-                        label: 'عدد الصفوف',
-                        controller: _rowsController,
-                        min: 1,
-                        max: 15,
-                        icon: Icons.table_rows,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _numberField(
-                        label: 'عدد الأعمدة',
-                        controller: _colsController,
-                        min: 1,
-                        max: 6,
-                        icon: Icons.view_column,
-                      ),
-                    ),
-                  ],
-                ),
-
-                _numberField(
-                  label: 'حجم الخط (pt)',
-                  controller: _fontSizeController,
-                  min: 5,
-                  max: 30,
-                  isDouble: true,
-                  icon: Icons.text_fields,
-                ),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: _numberField(
-                        label: 'عرض الكرت (mm)',
-                        controller: _cardWidthController,
-                        min: 30,
-                        max: 150,
-                        isDouble: true,
-                        icon: Icons.straighten,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _numberField(
-                        label: 'ارتفاع الكرت (mm)',
-                        controller: _cardHeightController,
-                        min: 20,
-                        max: 120,
-                        isDouble: true,
-                        icon: Icons.height,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          Icon(icon, color: const Color(0xFFA78BFA), size: 14),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
             ),
           ),
-
-          // ============================================
-          // المحتوى
-          // ============================================
-          _sectionTitle('📄', 'المحتوى', color: Colors.teal),
-
-          _sectionCard(
-            accent: Colors.teal,
-            child: TextField(
-              controller: _networkNameController,
-              decoration: InputDecoration(
-                labelText: 'اسم الشبكة',
-                hintText: 'مثال: شبكة الفيصلية',
-                prefixIcon: const Icon(Icons.wifi, size: 18),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                  const BorderSide(color: Colors.teal, width: 2),
-                ),
+          const Spacer(),
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.remove,
+                color: Colors.white54, size: 18),
+            onPressed: value > min
+                ? () => onChanged(value - 1)
+                : null,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              '$value',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-
-          // ============================================
-          // خيارات العرض
-          // ============================================
-          _sectionTitle('👁️', 'خيارات العرض', color: Colors.purple),
-
-          _sectionCard(
-            accent: Colors.purple,
-            child: Column(
-              children: [
-                _switchTile(
-                  icon: Icons.wifi,
-                  title: 'إظهار اسم الشبكة',
-                  value: _showNetworkName,
-                  color: Colors.blue,
-                  onChanged: (v) =>
-                      setState(() => _showNetworkName = v),
-                ),
-                _switchTile(
-                  icon: Icons.lock,
-                  title: 'إظهار كلمة المرور',
-                  value: _showPassword,
-                  color: Colors.purple,
-                  onChanged: (v) => setState(() => _showPassword = v),
-                ),
-                _switchTile(
-                  icon: Icons.timer,
-                  title: 'إظهار المدة',
-                  value: _showUptime,
-                  color: Colors.green,
-                  onChanged: (v) => setState(() => _showUptime = v),
-                ),
-                _switchTile(
-                  icon: Icons.data_usage,
-                  title: 'إظهار حجم البيانات',
-                  value: _showGb,
-                  color: Colors.orange,
-                  onChanged: (v) => setState(() => _showGb = v),
-                ),
-              ],
-            ),
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.add,
+                color: Colors.white54, size: 18),
+            onPressed: value < max
+                ? () => onChanged(value + 1)
+                : null,
           ),
-
-          const SizedBox(height: 8),
-
-          // ============================================
-          // زر الطباعة
-          // ============================================
-          SizedBox(
-            height: 56,
-            child: FilledButton.icon(
-              onPressed: _generating ? null : _print,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.green.shade600,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              icon: _generating
-                  ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-                  : const Icon(Icons.print, size: 22),
-              label: Text(
-                _generating ? 'جاري التوليد...' : '🖨️ طباعة PDF',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  // ===========================================================================
-  // Stats Card
-  // ===========================================================================
+  Widget _buildFieldCard(TemplateField field) {
+    final isSelected = _selectedFieldId == field.id;
+    final isEditable = field.key != 'name' && field.key != 'password';
 
-  Widget _buildStatsCard() {
     return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.indigo.shade400, Colors.indigo.shade700],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
+        color: isSelected
+            ? const Color(0xFF7C3AED).withValues(alpha: 0.15)
+            : Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.indigo.withValues(alpha: 0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+          color: isSelected
+              ? const Color(0xFF7C3AED)
+              : Colors.white12,
+        ),
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
+          // Row 1: Name + Size + Visibility
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  shape: BoxShape.circle,
+                  color: field.visible
+                      ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                      : Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.print,
-                  color: Colors.white,
-                  size: 26,
+                child: Icon(
+                  field.visible
+                      ? Icons.visibility
+                      : Icons.visibility_off,
+                  color: field.visible
+                      ? const Color(0xFF10B981)
+                      : Colors.white38,
+                  size: 16,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'جاهز للطباعة',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      '${widget.cards.length} كرت',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  field.label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C3AED)
+                      .withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${field.fontSize.toInt()} pt',
+                  style: const TextStyle(
+                    color: Color(0xFFA78BFA),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Transform.scale(
+                scale: 0.75,
+                child: Switch(
+                  value: field.visible,
+                  activeThumbColor: const Color(0xFF7C3AED),
+                  onChanged: (v) {
+                    field.visible = v;
+                    _updateField(field);
+                  },
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _statsItem(
-                    Icons.grid_view,
-                    'في الصفحة',
-                    '$_perPage',
-                  ),
+
+          // Row 2: Editable value
+          if (isEditable) ...[
+            const SizedBox(height: 8),
+            _buildValueEditor(field),
+          ],
+
+          const SizedBox(height: 8),
+
+          // Row 3: Font size slider
+          Row(
+            children: [
+              const Icon(Icons.text_fields,
+                  color: Colors.white38, size: 14),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Slider(
+                  value: field.fontSize.clamp(1, 100),
+                  min: 1,
+                  max: 100,
+                  activeColor: const Color(0xFF7C3AED),
+                  inactiveColor: Colors.white12,
+                  onChanged: (v) {
+                    field.fontSize = v;
+                    _updateField(field);
+                  },
                 ),
-                Container(
-                  width: 1,
-                  height: 30,
-                  color: Colors.white.withValues(alpha: 0.3),
-                ),
-                Expanded(
-                  child: _statsItem(
-                    Icons.description,
-                    'صفحات',
-                    '$_totalPages',
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
+
+          // Row 4: Style chips
+          Row(
+            children: [
+              _styleChip(field, 'normal', 'عادي'),
+              const SizedBox(width: 6),
+              _styleChip(field, 'bold', 'عريض'),
+              const SizedBox(width: 6),
+              _styleChip(field, 'italic', 'مائل'),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _statsItem(IconData icon, String label, String value) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-              ),
-            ),
-          ],
+  Widget _buildValueEditor(TemplateField field) {
+    // القيم الافتراضية للتعديل
+    String currentValue;
+
+    switch (field.key) {
+      case 'network':
+        currentValue = _template!.networkName;
+        break;
+      case 'limit-uptime':
+        currentValue = field.customValue.isNotEmpty
+            ? field.customValue
+            : '8 يوم';
+        break;
+      case 'limit-gb':
+        currentValue = field.customValue.isNotEmpty
+            ? field.customValue
+            : '5GB';
+        break;
+      case 'note1':
+      case 'note2':
+        currentValue = field.customValue;
+        break;
+      case 'comment':
+        currentValue = field.customValue;
+        break;
+      default:
+        currentValue = field.customValue;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: TextField(
+        controller:
+        TextEditingController(text: currentValue)
+          ..selection = TextSelection.fromPosition(
+            TextPosition(offset: currentValue.length),
+          ),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
+        decoration: InputDecoration(
+          hintText: 'اكتب القيمة...',
+          hintStyle: const TextStyle(
+            color: Colors.white24,
+            fontSize: 12,
+          ),
+          icon: const Icon(Icons.edit,
+              color: Color(0xFFA78BFA), size: 16),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        ),
+        onChanged: (v) {
+          if (field.key == 'network') {
+            setState(() {
+              _template!.networkName = v;
+            });
+          } else {
+            field.customValue = v;
+            field.isCustom = true;
+            _updateField(field);
+          }
+        },
+      ),
+    );
+  }
+
+
+  Widget _styleChip(TemplateField field, String value, String label) {
+    final isSelected = field.fontStyle == value;
+    return GestureDetector(
+      onTap: () {
+        field.fontStyle = value;
+        _updateField(field);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding:
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF7C3AED)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF7C3AED)
+                : Colors.white12,
           ),
         ),
-      ],
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white70,
+            fontSize: 11,
+            fontWeight: isSelected
+                ? FontWeight.bold
+                : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Print Button
+  // ===========================================================================
+
+  Widget _buildPrintButton() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1A2E),
+      ),
+      child: SizedBox(
+        height: 56,
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _printing ? null : _print,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF10B981),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          icon: _printing
+              ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          )
+              : const Icon(Icons.print, size: 22),
+          label: Text(
+            _printing
+                ? 'جاري التحضير...'
+                : '💾 حفظ وطباعة PDF',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -31,6 +31,15 @@ class TemplateField {
   /// نوع الخط: normal / bold / italic
   String fontStyle;
 
+  /// الموضع الأفقي (0.0 - 1.0)
+  double x;
+
+  /// الموضع العمودي (0.0 - 1.0)
+  double y;
+
+  /// إظهار/إخفاء الحقل
+  bool visible;
+
   TemplateField({
     required this.id,
     required this.label,
@@ -40,6 +49,9 @@ class TemplateField {
     this.enabled = true,
     this.fontSize = 10,
     this.fontStyle = 'normal',
+    this.x = 0.5,
+    this.y = 0.5,
+    this.visible = true,
   });
 
   Map<String, dynamic> toJson() => {
@@ -51,6 +63,9 @@ class TemplateField {
     'enabled': enabled,
     'fontSize': fontSize,
     'fontStyle': fontStyle,
+    'x': x,
+    'y': y,
+    'visible': visible,
   };
 
   factory TemplateField.fromJson(Map<String, dynamic> json) {
@@ -63,6 +78,9 @@ class TemplateField {
       enabled: json['enabled'] as bool? ?? true,
       fontSize: (json['fontSize'] as num?)?.toDouble() ?? 10,
       fontStyle: json['fontStyle'] as String? ?? 'normal',
+      x: (json['x'] as num?)?.toDouble() ?? 0.5,
+      y: (json['y'] as num?)?.toDouble() ?? 0.5,
+      visible: json['visible'] as bool? ?? true,
     );
   }
 
@@ -76,6 +94,9 @@ class TemplateField {
       enabled: enabled,
       fontSize: fontSize,
       fontStyle: fontStyle,
+      x: x,
+      y: y,
+      visible: visible,
     );
   }
 }
@@ -173,8 +194,8 @@ class CardTemplate {
     required this.id,
     required this.name,
     this.description = '',
-    this.cardWidth = 80,
-    this.cardHeight = 50,
+    this.cardWidth = 23,
+    this.cardHeight = 23,
     this.fontSize = 10,
     this.fontStyle = 'normal',
     this.textColor = 0,
@@ -182,8 +203,8 @@ class CardTemplate {
     this.borderStyle = 1,
     this.borderWidth = 0.5,
     this.textAlign = 'right',
-    this.rows = 5,
-    this.cols = 2,
+    this.rows = 12,
+    this.cols = 8,
     this.networkName = 'MikroTik',
     this.showNetworkName = true,
     this.logoPath,
@@ -292,30 +313,80 @@ class CardTemplate {
   static List<TemplateField> defaultFields() {
     return [
       TemplateField(
+        id: 'f_network',
+        label: 'اسم الشبكة',
+        key: 'network',
+        fontSize: 14,
+        fontStyle: 'bold',
+        x: 0.5,
+        y: 0.12,
+      ),
+      TemplateField(
         id: 'f_name',
         label: 'اسم المستخدم',
         key: 'name',
-        fontSize: 12,
+        fontSize: 28,
         fontStyle: 'bold',
+        x: 0.5,
+        y: 0.40,
       ),
       TemplateField(
         id: 'f_password',
         label: 'كلمة المرور',
         key: 'password',
-        fontSize: 12,
-        fontStyle: 'bold',
+        fontSize: 14,
+        fontStyle: 'normal',
+        x: 0.5,
+        y: 0.58,
+        visible: false,
       ),
       TemplateField(
         id: 'f_uptime',
         label: 'المدة',
         key: 'limit-uptime',
-        fontSize: 9,
+        fontSize: 14,
+        fontStyle: 'normal',
+        x: 0.25,
+        y: 0.82,
       ),
       TemplateField(
         id: 'f_gb',
-        label: 'حجم البيانات',
+        label: 'البيانات',
         key: 'limit-gb',
-        fontSize: 9,
+        fontSize: 14,
+        fontStyle: 'normal',
+        x: 0.75,
+        y: 0.82,
+      ),
+      TemplateField(
+        id: 'f_note1',
+        label: 'ملاحظات 1',
+        key: 'note1',
+        fontSize: 10,
+        fontStyle: 'normal',
+        x: 0.5,
+        y: 0.65,
+        visible: true,
+      ),
+      TemplateField(
+        id: 'f_note2',
+        label: 'ملاحظات 2',
+        key: 'note2',
+        fontSize: 10,
+        fontStyle: 'normal',
+        x: 0.5,
+        y: 0.70,
+        visible: false,
+      ),
+      TemplateField(
+        id: 'f_notes',
+        label: 'ملاحظات',
+        key: 'comment',
+        fontSize: 10,
+        fontStyle: 'normal',
+        x: 0.5,
+        y: 0.95,
+        visible: false,
       ),
     ];
   }

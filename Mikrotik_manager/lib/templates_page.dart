@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/card_template.dart';
 import 'services/template_storage.dart';
+import 'template_editor_page.dart';
 
 // =============================================================================
 // Templates Page - إدارة القوالب
@@ -253,13 +254,34 @@ class _TemplatesPageState extends State<TemplatesPage> {
 
     if (!mounted) return;
 
-    // هنا سنفتح شاشة التحرير لاحقاً
-    _showMessage('تم إنشاء القالب — سنضيف شاشة التحرير قريباً');
+    // فتح شاشة التحرير
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TemplateEditorPage(template: template),
+      ),
+    );
+
+    if (!mounted) return;
+    if (saved != true) {
+      // المستخدم لم يحفظ — احذف القالب
+      await _storage.delete(template.id);
+    }
+    await _loadTemplates();
   }
 
   Future<void> _editTemplate(CardTemplate template) async {
-    // هنا سنفتح شاشة التحرير لاحقاً
-    _showMessage('شاشة التحرير ستُضاف في المرحلة القادمة');
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TemplateEditorPage(template: template),
+      ),
+    );
+
+    if (!mounted) return;
+    if (saved == true) {
+      await _loadTemplates();
+    }
   }
 
   Future<void> _duplicateTemplate(CardTemplate template) async {
