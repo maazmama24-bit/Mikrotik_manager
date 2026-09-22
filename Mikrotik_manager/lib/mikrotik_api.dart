@@ -3264,4 +3264,150 @@ return {
       return null;
     }
   }
+
+  // ===========================================================================
+  // System Scripts & Scheduler (لإضافة صلاحية Hotspot)
+  // ===========================================================================
+
+  /// جلب جميع السكربتات.
+  Future<List<Map<String, String>>> getScripts() async {
+    return _print(
+      '/system/script/print',
+      properties: const ['.id', 'name', 'source', 'owner', 'policy'],
+    );
+  }
+
+  /// إضافة سكربت جديد (أو تحديثه إذا وُجد).
+  Future<String?> addOrUpdateScript({
+    required String name,
+    required String source,
+  }) async {
+    // ابحث عن سكربت بنفس الاسم
+    final existing = await _print(
+      '/system/script/print',
+      properties: const ['.id', 'name'],
+      queries: {'?name': name},
+    );
+
+    if (existing.isNotEmpty) {
+      final id = existing.first['.id'];
+      if (id != null && id.isNotEmpty) {
+        await _set('/system/script/set', id, {'source': source});
+        return id;
+      }
+    }
+
+    return _add('/system/script/add', {
+      'name': name,
+      'source': source,
+      'policy': 'read,write,policy,test,password,sniff,sensitive,romon',
+    });
+  }
+
+  /// إضافة Scheduler جديد (أو تحديثه إذا وُجد).
+  Future<String?> addOrUpdateScheduler({
+    required String name,
+    required String onEvent,
+    String interval = '03:00:00',
+  }) async {
+    final existing = await _print(
+      '/system/scheduler/print',
+      properties: const ['.id', 'name'],
+      queries: {'?name': name},
+    );
+
+    if (existing.isNotEmpty) {
+      final id = existing.first['.id'];
+      if (id != null && id.isNotEmpty) {
+        await _set('/system/scheduler/set', id, {
+          'on-event': onEvent,
+          'interval': interval,
+        });
+        return id;
+      }
+    }
+
+    return _add('/system/scheduler/add', {
+      'name': name,
+      'on-event': onEvent,
+      'interval': interval,
+      'start-time': '00:00:00',
+    });
+  }
+
+  /// ربط سكربت بـ on-login في كل Hotspot Profiles.
+  Future<int> linkScriptToAllHotspotProfiles({
+    required String scriptName,
+  }) async {
+    final profiles = await getHotspotProfiles();
+    final onLoginCode = ':$scriptName;';
+
+    int count = 0;
+    for (final profile in profiles) {
+      final id = profile['.id'];
+      if (id == null || id.isEmpty) continue;
+
+      try {
+        await _set('/ip/hotspot/user/profile/set', id, {
+          'on-login': onLoginCode,
+        });
+        count++;
+      } catch (e) {
+        debugPrint('⚠️ فشل ربط ${profile['name']}: $e');
+      }
+    }
+
+    return count;
+  }
+
+  /// إعداد نظام الصلاحية كاملاً (السكربتان + الربط).
+  Future<Map<String, dynamic>> setupHotspotValidity({
+    required String scriptSource,
+    required String schedulerSource,
+    String scriptName = 'Hotspot_Validity_Login',
+    String schedulerName = 'Hotspot_Validity',
+    String interval = '03:00:00',
+  }) async {
+    final result = <String, dynamic>{
+      'scriptCreated': false,
+      'schedulerCreated': false,
+      'profilesLinked': 0,
+      'errors': <String>[],
+    };
+
+    // 1️⃣ أضف السكربت (on-login)
+    try {
+      await addOrUpdateScript(
+        name: scriptName,
+        source: scriptSource,
+      );
+      result['scriptCreated'] = true;
+    } catch (e) {
+      result['errors'].add('Script: $e');
+    }
+
+    // 2️⃣ أضف Scheduler
+    try {
+      await addOrUpdateScheduler(
+        name: schedulerName,
+        onEvent: schedulerSource,
+        interval: interval,
+      );
+      result['schedulerCreated'] = true;
+    } catch (e) {
+      result['errors'].add('Scheduler: $e');
+    }
+
+    // 3️⃣ اربط السكربت في كل الـ Profiles
+    try {
+      final count = await linkScriptToAllHotspotProfiles(
+        scriptName: scriptName,
+      );
+      result['profilesLinked'] = count;
+    } catch (e) {
+      result['errors'].add('Profiles: $e');
+    }
+
+    return result;
+  }
 }
