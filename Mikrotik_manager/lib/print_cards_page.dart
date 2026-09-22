@@ -268,11 +268,35 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
           _buildTemplateSelector(),
-          Expanded(flex: 5, child: _buildPreviewArea()),
-          _buildFieldsList(),
+          const SizedBox(height: 16),
+          _buildPreviewArea(),
+          const SizedBox(height: 20),
+          _buildGridSettings(),
+          const SizedBox(height: 20),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                Icon(Icons.tune, color: Color(0xFFA78BFA), size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'الحقول',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          ..._template!.fields.map((f) => _buildFieldCard(f)),
+          const SizedBox(height: 20),
           _buildPrintButton(),
         ],
       ),
@@ -367,52 +391,47 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
   Widget _buildPreviewArea() {
     final template = _template!;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildStatsBar(),
-          const SizedBox(height: 10),
-          Expanded(
-            child: Center(
-              child: AspectRatio(
-                aspectRatio:
-                template.cardWidth / template.cardHeight,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cardW = constraints.maxWidth;
-                    final cardH = constraints.maxHeight;
+    return Column(
+      children: [
+        _buildStatsBar(),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: AspectRatio(
+            aspectRatio: template.cardWidth / template.cardHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final cardW = constraints.maxWidth;
+                final cardH = constraints.maxHeight;
 
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(
-                            color: const Color(0xFF7C3AED), width: 2),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF7C3AED)
-                                .withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(
+                        color: const Color(0xFF7C3AED), width: 2),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF7C3AED)
+                            .withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
-                      child: Stack(
-                        children: template.fields
-                            .where((f) => f.visible)
-                            .map((field) => _buildDraggableField(
-                            field, cardW, cardH))
-                            .toList(),
-                      ),
-                    );
-                  },
-                ),
-              ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: template.fields
+                        .where((f) => f.visible)
+                        .map((field) => _buildDraggableField(
+                        field, cardW, cardH))
+                        .toList(),
+                  ),
+                );
+              },
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -568,58 +587,7 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
   // Fields List (Bottom)
   // ===========================================================================
 
-  Widget _buildFieldsList() {
-    return Container(
-      height: 320,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.tune, color: Color(0xFFA78BFA), size: 16),
-              SizedBox(width: 8),
-              Text(
-                'الحقول',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          _buildGridSettings(),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: _template!.fields.length,
-              itemBuilder: (ctx, i) {
-                return _buildFieldCard(_template!.fields[i]);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
   Widget _buildGridSettings() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
