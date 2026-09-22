@@ -52,6 +52,9 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
         cardHeight: 17,
         fields: CardTemplate.defaultFields(),
       );
+      if (widget.cards.isNotEmpty) {
+        debugPrint('🔍 card: ${widget.cards.first}');
+      }
       _loading = false;
     });
   }
@@ -564,7 +567,7 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
 
     switch (field.key) {
       case 'network':
-        return widget.networkName;
+        return _template!.networkName;
       case 'name':
         return firstCard['name'] ?? '1234567';
       case 'password':
@@ -862,7 +865,6 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
   }
 
   Widget _buildValueEditor(TemplateField field) {
-    // القيم الافتراضية للتعديل
     String currentValue;
 
     switch (field.key) {
@@ -897,12 +899,9 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.white12),
       ),
-      child: TextField(
-        controller:
-        TextEditingController(text: currentValue)
-          ..selection = TextSelection.fromPosition(
-            TextPosition(offset: currentValue.length),
-          ),
+      child: TextFormField(
+        key: ValueKey('${field.id}_${field.key}'),
+        initialValue: currentValue,
         style: const TextStyle(
           color: Colors.white,
           fontSize: 13,
@@ -920,15 +919,19 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
           contentPadding: const EdgeInsets.symmetric(vertical: 10),
         ),
         onChanged: (v) {
-          if (field.key == 'network') {
-            setState(() {
+          setState(() {
+            if (field.key == 'network') {
               _template!.networkName = v;
-            });
-          } else {
-            field.customValue = v;
-            field.isCustom = true;
-            _updateField(field);
-          }
+            } else {
+              field.customValue = v;
+              field.isCustom = true;
+              final index = _template!.fields
+                  .indexWhere((f) => f.id == field.id);
+              if (index != -1) {
+                _template!.fields[index] = field;
+              }
+            }
+          });
         },
       ),
     );
