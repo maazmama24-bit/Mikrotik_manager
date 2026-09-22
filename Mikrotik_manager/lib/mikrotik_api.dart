@@ -3282,19 +3282,21 @@ return {
     required String name,
     required String source,
   }) async {
-    // ابحث عن سكربت بنفس الاسم
-    final existing = await _print(
+    final all = await _print(
       '/system/script/print',
       properties: const ['.id', 'name'],
-      queries: {'?name': name},
     );
 
-    if (existing.isNotEmpty) {
-      final id = existing.first['.id'];
-      if (id != null && id.isNotEmpty) {
-        await _set('/system/script/set', id, {'source': source});
-        return id;
-      }
+    final match = all.firstWhere(
+          (s) => (s['name'] ?? '') == name,
+      orElse: () => {},
+    );
+
+    final existingId = match['.id'];
+
+    if (existingId != null && existingId.isNotEmpty) {
+      await _set('/system/script/set', existingId, {'source': source});
+      return existingId;
     }
 
     return _add('/system/script/add', {
@@ -3310,21 +3312,24 @@ return {
     required String onEvent,
     String interval = '03:00:00',
   }) async {
-    final existing = await _print(
+    final all = await _print(
       '/system/scheduler/print',
       properties: const ['.id', 'name'],
-      queries: {'?name': name},
     );
 
-    if (existing.isNotEmpty) {
-      final id = existing.first['.id'];
-      if (id != null && id.isNotEmpty) {
-        await _set('/system/scheduler/set', id, {
-          'on-event': onEvent,
-          'interval': interval,
-        });
-        return id;
-      }
+    final match = all.firstWhere(
+          (s) => (s['name'] ?? '') == name,
+      orElse: () => {},
+    );
+
+    final existingId = match['.id'];
+
+    if (existingId != null && existingId.isNotEmpty) {
+      await _set('/system/scheduler/set', existingId, {
+        'on-event': onEvent,
+        'interval': interval,
+      });
+      return existingId;
     }
 
     return _add('/system/scheduler/add', {
@@ -3404,6 +3409,109 @@ return {
         scriptName: scriptName,
       );
       result['profilesLinked'] = count;
+    } catch (e) {
+      result['errors'].add('Profiles: $e');
+    }
+
+    return result;
+  }
+
+  /// حذف سكربت بالاسم.
+  Future<bool> deleteScriptByName(String name) async {
+    try {
+      final existing = await _print(
+        '/system/script/print',
+        properties: const ['.id', 'name'],
+        queries: {'?name': name},
+      );
+
+      if (existing.isEmpty) return false;
+
+      final id = existing.first['.id'];
+      if (id == null || id.isEmpty) return false;
+
+      await _remove('/system/script/remove', id);
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ فشل حذف السكربت $name: $e');
+      return false;
+    }
+  }
+
+  /// حذف Scheduler بالاسم.
+  Future<bool> deleteSchedulerByName(String name) async {
+    try {
+      final existing = await _print(
+        '/system/scheduler/print',
+        properties: const ['.id', 'name'],
+        queries: {'?name': name},
+      );
+
+      if (existing.isEmpty) return false;
+
+      final id = existing.first['.id'];
+      if (id == null || id.isEmpty) return false;
+
+      await _remove('/system/scheduler/remove', id);
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ فشل حذف الجدولة $name: $e');
+      return false;
+    }
+  }
+
+  /// إزالة ربط السكربت من on-login في كل Hotspot Profiles.
+  Future<int> unlinkScriptFromAllHotspotProfiles() async {
+    final profiles = await getHotspotProfiles();
+
+    int count = 0;
+    for (final profile in profiles) {
+      final id = profile['.id'];
+      if (id == null || id.isEmpty) continue;
+
+      try {
+        await _set('/ip/hotspot/user/profile/set', id, {
+          'on-login': '',
+        });
+        count++;
+      } catch (e) {
+        debugPrint('⚠️ فشل إزالة الربط من ${profile['name']}: $e');
+      }
+    }
+
+    return count;
+  }
+
+  /// إزالة نظام الصلاحية كاملاً.
+  Future<Map<String, dynamic>> removeHotspotValidity({
+    String scriptName = 'Hotspot_Validity_Login',
+    String schedulerName = 'Hotspot_Validity',
+  }) async {
+    final result = <String, dynamic>{
+      'scriptDeleted': false,
+      'schedulerDeleted': false,
+      'profilesUnlinked': 0,
+      'errors': <String>[],
+    };
+
+    // 1️⃣ احذف السكربت
+    try {
+      result['scriptDeleted'] = await deleteScriptByName(scriptName);
+    } catch (e) {
+      result['errors'].add('Script: $e');
+    }
+
+    // 2️⃣ احذف الجدولة
+    try {
+      result['schedulerDeleted'] = await deleteSchedulerByName(schedulerName);
+    } catch (e) {
+      result['errors'].add('Scheduler: $e');
+    }
+
+    // 3️⃣ أزل الربط من الـ Profiles
+    try {
+      final count = await unlinkScriptFromAllHotspotProfiles();
+      result['profilesUnlinked'] = count;
     } catch (e) {
       result['errors'].add('Profiles: $e');
     }

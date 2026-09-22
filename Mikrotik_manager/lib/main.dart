@@ -14,6 +14,7 @@ import 'vpn_page.dart';
 import 'hotspot_setup_page.dart';
 import 'firewall_page.dart';
 import 'hotspot_users_page.dart';
+import 'hotspot_validity_setup_page.dart';
 import 'user_manager_users_page.dart';
 import 'user_manager_hub_page.dart';
 import 'api_singleton.dart';
@@ -3796,7 +3797,27 @@ class HotspotCardsHubPage extends StatelessWidget {
             },
           ),
 
-          const SizedBox(height: 24),
+
+          const SizedBox(height: 12),
+
+          // ============================================
+          // الخيار 3: تفعيل نظام الصلاحية
+          // ============================================
+          _buildOptionCard(
+            context,
+            icon: Icons.security,
+            title: '🎫 تفعيل الصلاحية',
+            subtitle: 'إضافة سكربتات الصلاحية للكروت تلقائياً',
+            color: Colors.purple,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HotspotValiditySetupPage(api: api),
+                ),
+              );
+            },
+          ),
 
           // ============================================
           // زر عرض المستخدمين
