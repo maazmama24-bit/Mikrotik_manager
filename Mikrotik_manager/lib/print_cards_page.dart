@@ -41,7 +41,10 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     final all = await _storage.loadAll();
 
     if (!mounted) return;
-
+    debugPrint('🔍 عدد القوالب المحمّلة: ${all.length}');
+    for (final t in all) {
+      debugPrint('🔍 - ${t.name} (${t.id}) bg=${t.backgroundImage}');
+    }
     setState(() {
       _allTemplates = all;
 
@@ -68,7 +71,17 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
 
   Future<void> _saveTemplate() async {
     if (_template == null) return;
-    await _storage.saveAll([_template!]);
+
+    // ابحث عن القالب في القائمة
+    final index = _allTemplates.indexWhere((t) => t.id == _template!.id);
+
+    if (index != -1) {
+      _allTemplates[index] = _template!;
+    } else {
+      _allTemplates.add(_template!);
+    }
+
+    await _storage.saveAll(_allTemplates);
   }
 
   int get _perPage =>
@@ -189,14 +202,18 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
             final value = _fieldValue(field, card);
             if (value.isEmpty) return pw.SizedBox();
 
-            final fontSize = field.fontSize * 0.4;
-            final dynamicWidth = value.length * fontSize * 0.65 + 6;
+            // // حجم الخط كنسبة من عرض الكرت
+            // // نضرب حجم الحقل في نسبة عرض الكرت
+            final fontSize = field.fontSize * (template.cardWidth / 100) * 2.5;
+
+            // عرض مناسب للنص
+            final textWidth = (value.length * fontSize * 0.6) + 2;
 
             return pw.Positioned(
-              left: field.x * cardW - (dynamicWidth / 2),
+              left: field.x * cardW - (textWidth / 2),
               top: field.y * cardH - (fontSize / 2),
               child: pw.SizedBox(
-                width: dynamicWidth,
+                width: textWidth,
                 child: pw.Text(
                   value,
                   textAlign: pw.TextAlign.center,
@@ -386,15 +403,14 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
           Expanded(
             child: _allTemplates.isEmpty
                 ? const Text(
-              'افتراضي (غير محفوظ)',
+              'لا توجد قوالب',
               style: TextStyle(
-                color: Colors.white,
+                color: Colors.white70,
                 fontSize: 13,
-                fontWeight: FontWeight.bold,
               ),
             )
                 : DropdownButton<String>(
-              value: _template?.name,
+              value: _template?.id,
               isExpanded: true,
               dropdownColor: const Color(0xFF1A1A2E),
               underline: const SizedBox(),
@@ -407,14 +423,17 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
               ),
               items: _allTemplates
                   .map((t) => DropdownMenuItem(
-                value: t.name,
-                child: Text(t.name),
+                value: t.id,
+                child: Text(
+                  t.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ))
                   .toList(),
-              onChanged: (name) {
-                if (name == null) return;
+              onChanged: (id) {
+                if (id == null) return;
                 final t = _allTemplates
-                    .firstWhere((x) => x.name == name);
+                    .firstWhere((x) => x.id == id);
                 setState(() {
                   _template = t.copy();
                   _selectedFieldId = null;
