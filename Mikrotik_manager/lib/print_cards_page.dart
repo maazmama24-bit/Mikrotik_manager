@@ -8,11 +8,13 @@ import 'services/template_storage.dart';
 class PrintCardsPage extends StatefulWidget {
   final List<Map<String, String>> cards;
   final String networkName;
+  final CardTemplate? initialTemplate;
 
   const PrintCardsPage({
     super.key,
     required this.cards,
     required this.networkName,
+    this.initialTemplate,
   });
 
   @override
@@ -35,25 +37,29 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
   }
 
   Future<void> _loadTemplates() async {
-    // 🧹 احذف القوالب القديمة
-    await _storage.saveAll([]);
+    final all = await _storage.loadAll();
 
     if (!mounted) return;
 
     setState(() {
-      _allTemplates = [];
-      _template = CardTemplate(
-        id: 'default',
-        name: 'افتراضي',
-        networkName: widget.networkName,
-        rows: 16,
-        cols: 6,
-        cardWidth: 31,
-        cardHeight: 17,
-        fields: CardTemplate.defaultFields(),
-      );
-      if (widget.cards.isNotEmpty) {
-        debugPrint('🔍 card: ${widget.cards.first}');
+      _allTemplates = all;
+
+      // أولوية: initialTemplate ثم آخر قالب
+      if (widget.initialTemplate != null) {
+        _template = widget.initialTemplate!.copy();
+      } else if (all.isNotEmpty) {
+        _template = all.first.copy();
+      } else {
+        _template = CardTemplate(
+          id: 'default',
+          name: 'افتراضي',
+          networkName: widget.networkName,
+          rows: 16,
+          cols: 6,
+          cardWidth: 31,
+          cardHeight: 17,
+          fields: CardTemplate.defaultFields(),
+        );
       }
       _loading = false;
     });

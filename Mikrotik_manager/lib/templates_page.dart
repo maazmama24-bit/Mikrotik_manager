@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/card_template.dart';
 import 'services/template_storage.dart';
-import 'template_editor_page.dart';
-
-// =============================================================================
-// Templates Page - إدارة القوالب
-// =============================================================================
+import 'print_cards_page.dart';
 
 class TemplatesPage extends StatefulWidget {
   const TemplatesPage({super.key});
@@ -20,6 +16,8 @@ class _TemplatesPageState extends State<TemplatesPage> {
   List<CardTemplate> _templates = [];
   bool _loading = true;
 
+  static const String _defaultId = 'default_template';
+
   @override
   void initState() {
     super.initState();
@@ -28,215 +26,129 @@ class _TemplatesPageState extends State<TemplatesPage> {
 
   Future<void> _loadTemplates() async {
     if (!mounted) return;
-
     setState(() => _loading = true);
 
     final all = await _storage.loadAll();
 
     if (!mounted) return;
 
+    CardTemplate? defaultTpl;
+    final others = <CardTemplate>[];
+
+    for (final t in all) {
+      if (t.id == _defaultId) {
+        defaultTpl = t;
+      } else {
+        others.add(t);
+      }
+    }
+
+    if (defaultTpl == null) {
+      defaultTpl = CardTemplate(
+        id: _defaultId,
+        name: 'القالب الافتراضي',
+        description: 'قالب الطباعة الأساسي',
+        rows: 16,
+        cols: 6,
+        cardWidth: 31,
+        cardHeight: 17,
+        fields: CardTemplate.defaultFields(),
+      );
+      await _storage.add(defaultTpl);
+    }
+
     setState(() {
-      _templates = all;
+      _templates = [defaultTpl!, ...others];
       _loading = false;
     });
   }
 
-  Future<void> _deleteTemplate(CardTemplate template) async {
+  Future<void> _resetDefault() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('حذف القالب'),
-          content: Text(
-            'هل تريد حذف القالب "${template.name}" نهائياً؟',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              child: const Text('حذف'),
-            ),
+      builder: (ctx) => AlertDialog(
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.restore, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('إعادة تعيين'),
           ],
-        );
-      },
+        ),
+        content: const Text(
+          'سيتم إعادة القالب الافتراضي لحالته الأصلية.\n\nهل تريد المتابعة؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('إعادة تعيين'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final defaultTpl = CardTemplate(
+      id: _defaultId,
+      name: 'القالب الافتراضي',
+      description: 'قالب الطباعة الأساسي',
+      rows: 16,
+      cols: 6,
+      cardWidth: 31,
+      cardHeight: 17,
+      fields: CardTemplate.defaultFields(),
+    );
+
+    await _storage.update(defaultTpl);
+    await _loadTemplates();
+    if (mounted) _snack('تمت إعادة التعيين ✅');
+  }
+
+  Future<void> _deleteTemplate(CardTemplate template) async {
+    if (template.id == _defaultId) {
+      _snack('لا يمكن حذف القالب الافتراضي', isError: true);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('حذف القالب'),
+          ],
+        ),
+        content: Text('هل تريد حذف "${template.name}" نهائياً؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
     );
 
     if (confirmed != true) return;
 
     await _storage.delete(template.id);
     await _loadTemplates();
-
-    if (!mounted) return;
-    _showMessage('تم حذف القالب ✅');
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('🎨 قوالب الطباعة'),
-        actions: [
-          IconButton(
-            onPressed: _loadTemplates,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _templates.isEmpty
-          ? _buildEmptyState()
-          : _buildList(),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createNewTemplate,
-        icon: const Icon(Icons.add),
-        label: const Text('قالب جديد'),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.dashboard_customize,
-              size: 80,
-              color: Colors.grey,
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'لا توجد قوالب بعد',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'اضغط "قالب جديد" لإنشاء أول قالب طباعة',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 30),
-            FilledButton.icon(
-              onPressed: _createNewTemplate,
-              icon: const Icon(Icons.add),
-              label: const Text('إنشاء قالب جديد'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: _templates.length,
-      itemBuilder: (context, index) {
-        final template = _templates[index];
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            leading: const CircleAvatar(
-              radius: 25,
-              child: Icon(Icons.dashboard_customize),
-            ),
-            title: Text(
-              template.name,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (template.description.isNotEmpty)
-                  Text(template.description),
-                const SizedBox(height: 4),
-                Text(
-                  '${template.rows}×${template.cols} • '
-                      '${template.cardWidth.toInt()}×${template.cardHeight.toInt()} mm • '
-                      '${template.fields.length} حقل',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-            trailing: PopupMenuButton<String>(
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    _editTemplate(template);
-                    break;
-                  case 'duplicate':
-                    _duplicateTemplate(template);
-                    break;
-                  case 'delete':
-                    _deleteTemplate(template);
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 8),
-                      Text('تعديل'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'duplicate',
-                  child: Row(
-                    children: [
-                      Icon(Icons.copy, size: 20),
-                      SizedBox(width: 8),
-                      Text('نسخ'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 20, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('حذف', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            onTap: () => _editTemplate(template),
-          ),
-        );
-      },
-    );
+    if (mounted) _snack('تم الحذف ✅');
   }
 
   Future<void> _createNewTemplate() async {
@@ -246,55 +158,379 @@ class _TemplatesPageState extends State<TemplatesPage> {
       id: 'tpl_$now',
       name: 'قالب جديد',
       description: '',
+      rows: 16,
+      cols: 6,
+      cardWidth: 31,
+      cardHeight: 17,
       fields: CardTemplate.defaultFields(),
     );
 
     await _storage.add(template);
-    await _loadTemplates();
 
     if (!mounted) return;
 
-    // فتح شاشة التحرير
-    final saved = await Navigator.push<bool>(
+    // افتح الاستوديو (PrintCardsPage)
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TemplateEditorPage(template: template),
+        builder: (_) => PrintCardsPage(
+          cards: [],
+          networkName: 'MikroTik',
+          initialTemplate: template,
+        ),
       ),
     );
 
     if (!mounted) return;
-    if (saved != true) {
-      // المستخدم لم يحفظ — احذف القالب
-      await _storage.delete(template.id);
-    }
     await _loadTemplates();
   }
 
-  Future<void> _editTemplate(CardTemplate template) async {
-    final saved = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TemplateEditorPage(template: template),
+  void _snack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: isError ? Colors.red : const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1A1A2E),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          '🎨 قوالب الطباعة',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            onPressed: _loadTemplates,
+            icon: const Icon(Icons.refresh, color: Color(0xFFA78BFA)),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(
+        child: CircularProgressIndicator(color: Color(0xFFA78BFA)),
+      )
+          : _buildList(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createNewTemplate,
+        backgroundColor: const Color(0xFF7C3AED),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'قالب جديد',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
-
-    if (!mounted) return;
-    if (saved == true) {
-      await _loadTemplates();
-    }
   }
 
-  Future<void> _duplicateTemplate(CardTemplate template) async {
-    final now = DateTime.now().millisecondsSinceEpoch.toString();
+  Widget _buildList() {
+    final defaultTpl = _templates.first;
+    final others = _templates.skip(1).toList();
 
-    final copy = template.copy();
-    copy.id = 'tpl_$now';
-    copy.name = '${template.name} (نسخة)';
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildDefaultCard(defaultTpl),
+        const SizedBox(height: 24),
+        if (others.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                Icon(Icons.folder_copy,
+                    color: Color(0xFFA78BFA), size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'قوالب أخرى',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...others.map((t) => _buildTemplateCard(t)),
+        ],
+        const SizedBox(height: 80),
+      ],
+    );
+  }
 
-    await _storage.add(copy);
-    await _loadTemplates();
+  // ===========================================================================
+  // Default Template Card
+  // ===========================================================================
 
-    if (!mounted) return;
-    _showMessage('تم نسخ القالب ✅');
+  Widget _buildDefaultCard(CardTemplate template) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF7C3AED).withValues(alpha: 0.25),
+            const Color(0xFF5B21B6).withValues(alpha: 0.1),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.5),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.star,
+                    color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'القالب الافتراضي',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(Icons.verified,
+                            color: Color(0xFFF59E0B), size: 16),
+                      ],
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'يُستخدم تلقائياً عند الطباعة',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _statPill(
+                icon: Icons.table_rows,
+                label: '${template.rows} صف',
+                color: const Color(0xFF06B6D4),
+              ),
+              const SizedBox(width: 8),
+              _statPill(
+                icon: Icons.view_column,
+                label: '${template.cols} عمود',
+                color: const Color(0xFFF59E0B),
+              ),
+              const SizedBox(width: 8),
+              _statPill(
+                icon: Icons.grid_view,
+                label: '${template.rows * template.cols} كرت',
+                color: const Color(0xFF10B981),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: _actionButton(
+              icon: Icons.restore,
+              label: 'إعادة تعيين القالب',
+              color: const Color(0xFFF59E0B),
+              onTap: _resetDefault,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Other Templates
+  // ===========================================================================
+
+  Widget _buildTemplateCard(CardTemplate template) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.dashboard_customize,
+                color: Color(0xFFA78BFA), size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  template.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${template.rows}×${template.cols} • ${template.cardWidth.toInt()}×${template.cardHeight.toInt()} mm',
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _deleteTemplate(template),
+            icon: const Icon(Icons.delete_outline,
+                color: Colors.red, size: 20),
+            tooltip: 'حذف',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Small Widgets
+  // ===========================================================================
+
+  Widget _statPill({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 13),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color, color.withValues(alpha: 0.7)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

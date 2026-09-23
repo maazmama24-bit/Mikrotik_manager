@@ -8,17 +8,18 @@ import 'services/template_storage.dart';
 class TemplateEditorPage extends StatefulWidget {
   final CardTemplate template;
   final List<Map<String, String>>? cards;
+  final bool isNewTemplate;
 
   const TemplateEditorPage({
     super.key,
     required this.template,
     this.cards,
+    this.isNewTemplate = false,
   });
 
   @override
   State<TemplateEditorPage> createState() => _TemplateEditorPageState();
 }
-
 class _TemplateEditorPageState extends State<TemplateEditorPage> {
   final TemplateStorage _storage = TemplateStorage();
 
@@ -37,11 +38,15 @@ class _TemplateEditorPageState extends State<TemplateEditorPage> {
     setState(() => _saving = true);
 
     try {
-      final exists = await _storage.getById(_template.id);
-      if (exists != null) {
-        await _storage.update(_template);
-      } else {
+      if (widget.isNewTemplate) {
         await _storage.add(_template);
+      } else {
+        final exists = await _storage.getById(_template.id);
+        if (exists != null) {
+          await _storage.update(_template);
+        } else {
+          await _storage.add(_template);
+        }
       }
 
       if (!mounted) return;
