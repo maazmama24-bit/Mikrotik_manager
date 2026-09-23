@@ -28,6 +28,16 @@ class _TemplatesPageState extends State<TemplatesPage> {
     if (!mounted) return;
     setState(() => _loading = true);
 
+    // 📸 الخلفيات المتاحة
+    final availableBackgrounds = [
+      'assets/templates/template_1.jpg',
+      'assets/templates/template_2.jpg',
+      'assets/templates/template_3.jpg',
+      'assets/templates/template_4.jpg',
+      'assets/templates/template_5.jpg',
+      'assets/templates/template_6.jpg',
+    ];
+
     final all = await _storage.loadAll();
 
     if (!mounted) return;
@@ -52,9 +62,31 @@ class _TemplatesPageState extends State<TemplatesPage> {
         cols: 6,
         cardWidth: 31,
         cardHeight: 17,
+        backgroundImage: null,
         fields: CardTemplate.defaultFields(),
       );
       await _storage.add(defaultTpl);
+    }
+
+    // 🎨 أنشئ قوالب للخلفيات غير المرتبطة
+    for (final bgPath in availableBackgrounds) {
+      final exists = others.any((t) => t.backgroundImage == bgPath);
+      if (!exists) {
+        final id = bgPath.split('/').last.replaceAll('.jpg', '');
+        final bgTemplate = CardTemplate(
+          id: 'bg_$id',
+          name: 'قالب $id',
+          description: 'قالب بخلفية',
+          rows: 16,
+          cols: 6,
+          cardWidth: 31,
+          cardHeight: 17,
+          backgroundImage: bgPath,
+          fields: CardTemplate.defaultFields(),
+        );
+        await _storage.add(bgTemplate);
+        others.add(bgTemplate);
+      }
     }
 
     setState(() {

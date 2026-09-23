@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'models/card_template.dart';
 import 'services/template_storage.dart';
-import 'dart:io';
 
 class PrintCardsPage extends StatefulWidget {
   final List<Map<String, String>> cards;
@@ -80,7 +80,6 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
   }
 
   Future<void> _print() async {
-    debugPrint('🔴 _print called');
     if (_printing || _template == null) return;
 
     setState(() => _printing = true);
@@ -91,6 +90,20 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
       final doc = pw.Document();
       final template = _template!;
       final perPage = _perPage;
+      final cols = template.cols;
+
+      // 🖼️ حمّل صورة الخلفية مرة واحدة
+      pw.MemoryImage? bgImage;
+      if (template.backgroundImage != null &&
+          template.backgroundImage!.isNotEmpty) {
+        try {
+          final bytes =
+          await rootBundle.load(template.backgroundImage!);
+          bgImage = pw.MemoryImage(bytes.buffer.asUint8List());
+        } catch (e) {
+          debugPrint('⚠️ فشل تحميل الخلفية: $e');
+        }
+      }
 
       final pages = <List<Map<String, String>>>[];
       for (int i = 0; i < widget.cards.length; i += perPage) {
@@ -99,8 +112,6 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
             : i + perPage;
         pages.add(widget.cards.sublist(i, end));
       }
-
-      final cols = template.cols;
 
       for (final pageCards in pages) {
         doc.addPage(
@@ -111,7 +122,6 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
               final cardW = template.cardWidth * PdfPageFormat.mm;
               final cardH = template.cardHeight * PdfPageFormat.mm;
 
-              // قسّم إلى صفوف
               final rows = <List<Map<String, String>>>[];
               for (int i = 0; i < pageCards.length; i += cols) {
                 final end = (i + cols > pageCards.length)
@@ -129,7 +139,7 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
                       return pw.SizedBox(
                         width: cardW,
                         height: cardH,
-                        child: _buildPdfCard(card, template),
+                        child: _buildPdfCard(card, template, bgImage),
                       );
                     }).toList(),
                   );
@@ -152,14 +162,14 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     }
   }
   pw.Widget _buildPdfCard(
-      Map<String, String> card, CardTemplate template) {
+      Map<String, String> card,
+      CardTemplate template,
+      pw.MemoryImage? bgImage,
+      ) {
     final visibleFields =
     template.fields.where((f) => f.visible).toList();
     final cardW = template.cardWidth * PdfPageFormat.mm;
     final cardH = template.cardHeight * PdfPageFormat.mm;
-
-    final bgPath = template.backgroundImage;
-    final hasBg = bgPath != null && bgPath.isNotEmpty;
 
     return pw.Container(
       decoration: pw.BoxDecoration(
@@ -169,14 +179,9 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
       child: pw.Stack(
         children: [
           // 🖼️ الخلفية
-          if (hasBg)
+          if (bgImage != null)
             pw.Positioned.fill(
-              child: pw.Image(
-                pw.MemoryImage(
-                  File(bgPath).readAsBytesSync(),
-                ),
-                fit: pw.BoxFit.cover,
-              ),
+              child: pw.Image(bgImage, fit: pw.BoxFit.cover),
             ),
 
           // ✍️ الحقول
