@@ -202,24 +202,28 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
             final value = _fieldValue(field, card);
             if (value.isEmpty) return pw.SizedBox();
 
-            // // حجم الخط كنسبة من عرض الكرت
-            // // نضرب حجم الحقل في نسبة عرض الكرت
-            final fontSize = field.fontSize * (template.cardWidth / 100) * 2.5;
+            // حجم الخط: نسبة صغيرة جداً من عرض الكرت
+            final fontSize =
+                field.fontSize * (template.cardWidth / 100) * 0.7;
 
-            // عرض مناسب للنص
-            final textWidth = (value.length * fontSize * 0.6) + 2;
+            // ارتفاع سطر النص
+            final lineHeight = fontSize * 1.2;
+
+            // موضع النص
+            final top = (field.y * cardH) - (lineHeight / 2);
 
             return pw.Positioned(
-              left: field.x * cardW - (textWidth / 2),
-              top: field.y * cardH - (fontSize / 2),
-              child: pw.SizedBox(
-                width: textWidth,
+              left: 0,
+              top: top,
+              child: pw.Container(
+                width: cardW,
+                height: lineHeight,
+                alignment: pw.Alignment.center,
                 child: pw.Text(
                   value,
                   textAlign: pw.TextAlign.center,
                   maxLines: 1,
-                  softWrap: false,
-                  overflow: pw.TextOverflow.visible,
+                  overflow: pw.TextOverflow.clip,
                   style: pw.TextStyle(
                     fontSize: fontSize,
                     fontWeight:
