@@ -182,7 +182,8 @@ class CardTemplate {
   // ---------------------------------------------------------------------------
   // الحقول
   // ---------------------------------------------------------------------------
-
+  /// مسار صورة الخلفية (مثال: assets/templates/template_1.jpg)
+  String? backgroundImage;
   /// قائمة الحقول مرتبة
   List<TemplateField> fields;
 
@@ -211,6 +212,7 @@ class CardTemplate {
     this.logoWidth = 15,
     this.logoHeight = 15,
     this.logoPosition = 'top',
+    this.backgroundImage,
     List<TemplateField>? fields,
   }) : fields = fields ?? [];
 
@@ -239,6 +241,7 @@ class CardTemplate {
     'logoWidth': logoWidth,
     'logoHeight': logoHeight,
     'logoPosition': logoPosition,
+    'backgroundImage': backgroundImage,
     'fields': fields.map((f) => f.toJson()).toList(),
   };
 
@@ -264,6 +267,7 @@ class CardTemplate {
       logoWidth: (json['logoWidth'] as num?)?.toDouble() ?? 15,
       logoHeight: (json['logoHeight'] as num?)?.toDouble() ?? 15,
       logoPosition: json['logoPosition'] as String? ?? 'top',
+      backgroundImage: json['backgroundImage'] as String?,
       fields: (json['fields'] as List<dynamic>?)
           ?.map((f) => TemplateField.fromJson(f as Map<String, dynamic>))
           .toList() ??
@@ -301,6 +305,7 @@ class CardTemplate {
       logoWidth: logoWidth,
       logoHeight: logoHeight,
       logoPosition: logoPosition,
+      backgroundImage: backgroundImage,
       fields: fields.map((f) => f.copy()).toList(),
     );
   }

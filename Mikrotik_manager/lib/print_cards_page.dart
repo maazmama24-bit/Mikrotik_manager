@@ -4,6 +4,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'models/card_template.dart';
 import 'services/template_storage.dart';
+import 'dart:io';
 
 class PrintCardsPage extends StatefulWidget {
   final List<Map<String, String>> cards;
@@ -157,48 +158,63 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     final cardW = template.cardWidth * PdfPageFormat.mm;
     final cardH = template.cardHeight * PdfPageFormat.mm;
 
+    final bgPath = template.backgroundImage;
+    final hasBg = bgPath != null && bgPath.isNotEmpty;
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.black, width: 0.4),
         borderRadius: pw.BorderRadius.circular(1),
       ),
       child: pw.Stack(
-        children: visibleFields.map((field) {
-          final value = _fieldValue(field, card);
-          if (value.isEmpty) return pw.SizedBox();
-
-          // حجم الخط النهائي
-          final fontSize = field.fontSize * 0.4;
-
-          // عرض ضخم جداً — يمنع الالتفاف
-          final textWidth = value.length * fontSize * 1.2 + 20;
-
-          return pw.Positioned(
-            left: field.x * cardW - (textWidth / 2),
-            top: field.y * cardH - (fontSize / 2),
-            child: pw.SizedBox(
-              width: textWidth,
-              child: pw.Text(
-                value,
-                maxLines: 1,
-                softWrap: false,
-                overflow: pw.TextOverflow.visible,
-                textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(
-                  fontSize: fontSize * 2,
-                  fontWeight:
-                  field.fontStyle.toLowerCase().contains('bold')
-                      ? pw.FontWeight.bold
-                      : pw.FontWeight.normal,
-                  fontStyle:
-                  field.fontStyle.toLowerCase().contains('italic')
-                      ? pw.FontStyle.italic
-                      : pw.FontStyle.normal,
+        children: [
+          // 🖼️ الخلفية
+          if (hasBg)
+            pw.Positioned.fill(
+              child: pw.Image(
+                pw.MemoryImage(
+                  File(bgPath).readAsBytesSync(),
                 ),
+                fit: pw.BoxFit.cover,
               ),
             ),
-          );
-        }).toList(),
+
+          // ✍️ الحقول
+          ...visibleFields.map((field) {
+            final value = _fieldValue(field, card);
+            if (value.isEmpty) return pw.SizedBox();
+
+            final fontSize = field.fontSize * 0.4;
+            final dynamicWidth = value.length * fontSize * 0.65 + 6;
+
+            return pw.Positioned(
+              left: field.x * cardW - (dynamicWidth / 2),
+              top: field.y * cardH - (fontSize / 2),
+              child: pw.SizedBox(
+                width: dynamicWidth,
+                child: pw.Text(
+                  value,
+                  textAlign: pw.TextAlign.center,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: pw.TextOverflow.visible,
+                  style: pw.TextStyle(
+                    fontSize: fontSize,
+                    fontWeight:
+                    field.fontStyle.toLowerCase().contains('bold')
+                        ? pw.FontWeight.bold
+                        : pw.FontWeight.normal,
+                    fontStyle: field.fontStyle
+                        .toLowerCase()
+                        .contains('italic')
+                        ? pw.FontStyle.italic
+                        : pw.FontStyle.normal,
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -412,6 +428,7 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
 
   Widget _buildPreviewArea() {
     final template = _template!;
+    final bgPath = template.backgroundImage;
 
     return Column(
       children: [
@@ -441,12 +458,28 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
                       ),
                     ],
                   ),
-                  child: Stack(
-                    children: template.fields
-                        .where((f) => f.visible)
-                        .map((field) => _buildDraggableField(
-                        field, cardW, cardH))
-                        .toList(),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Stack(
+                      children: [
+                        // 🖼️ الخلفية
+                        if (bgPath != null && bgPath.isNotEmpty)
+                          Positioned.fill(
+                            child: Image.asset(
+                              bgPath,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stack) =>
+                              const SizedBox(),
+                            ),
+                          ),
+
+                        // ✍️ الحقول
+                        ...template.fields
+                            .where((f) => f.visible)
+                            .map((field) => _buildDraggableField(
+                            field, cardW, cardH)),
+                      ],
+                    ),
                   ),
                 );
               },
