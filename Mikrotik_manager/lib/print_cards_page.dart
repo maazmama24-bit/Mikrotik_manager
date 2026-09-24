@@ -136,7 +136,11 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
         doc.addPage(
           pw.Page(
             pageFormat: PdfPageFormat.a4,
-            margin: const pw.EdgeInsets.all(6),
+            margin: const pw.EdgeInsets.all(4),
+            theme: pw.ThemeData.withFont(
+              base: arabicFont,
+              bold: arabicFontBold,
+            ),
             build: (context) {
               final cardW = template.cardWidth * PdfPageFormat.mm;
               final cardH = template.cardHeight * PdfPageFormat.mm;
