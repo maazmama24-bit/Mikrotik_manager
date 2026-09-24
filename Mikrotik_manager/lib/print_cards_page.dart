@@ -153,11 +153,12 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
                 rows.add(pageCards.sublist(i, end));
               }
 
-              return pw.Column(
-                mainAxisSize: pw.MainAxisSize.min,
-                mainAxisAlignment: pw.MainAxisAlignment.start,
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: rows.map((rowCards) {
+              return pw.Center(
+                  child: pw.Column(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    mainAxisAlignment: pw.MainAxisAlignment.center,
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: rows.map((rowCards) {
                     return pw.Row(
                       mainAxisSize: pw.MainAxisSize.min,
                       mainAxisAlignment: pw.MainAxisAlignment.center,
@@ -176,7 +177,8 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
                         );
                       }).toList(),
                     );
-                  }).toList(),
+                    }).toList(),
+                  ),
               );
             },
           ),

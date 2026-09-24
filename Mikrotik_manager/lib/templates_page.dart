@@ -60,8 +60,8 @@ class _TemplatesPageState extends State<TemplatesPage> {
         description: 'قالب الطباعة الأساسي',
         rows: 16,
         cols: 6,
-        cardWidth: 31,
-        cardHeight: 17,
+        cardWidth: 32.5,
+        cardHeight: 18,
         backgroundImage: null,
         fields: CardTemplate.defaultFields(),
       );
@@ -133,8 +133,8 @@ class _TemplatesPageState extends State<TemplatesPage> {
       description: 'قالب الطباعة الأساسي',
       rows: 16,
       cols: 6,
-      cardWidth: 31,
-      cardHeight: 17,
+      cardWidth: 32.5,
+      cardHeight: 18,
       fields: CardTemplate.defaultFields(),
     );
 
