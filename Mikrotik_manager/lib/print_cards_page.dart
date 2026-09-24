@@ -100,6 +100,12 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     try {
       await _saveTemplate();
 
+      // 📝 حمّل الخط العربي
+      final fontData = await rootBundle.load('assets/fonts/Cairo-Regular.ttf');
+      final fontBoldData = await rootBundle.load('assets/fonts/Cairo-Bold.ttf');
+      final arabicFont = pw.Font.ttf(fontData);
+      final arabicFontBold = pw.Font.ttf(fontBoldData);
+
       final doc = pw.Document();
       final template = _template!;
       final perPage = _perPage;
@@ -144,19 +150,29 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
               }
 
               return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: rows.map((rowCards) {
-                  return pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: rowCards.map((card) {
-                      return pw.SizedBox(
-                        width: cardW,
-                        height: cardH,
-                        child: _buildPdfCard(card, template, bgImage),
-                      );
-                    }).toList(),
-                  );
-                }).toList(),
+                mainAxisSize: pw.MainAxisSize.min,
+                mainAxisAlignment: pw.MainAxisAlignment.start,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: rows.map((rowCards) {
+                    return pw.Row(
+                      mainAxisSize: pw.MainAxisSize.min,
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: rowCards.map((card) {
+                        return pw.SizedBox(
+                          width: cardW,
+                          height: cardH,
+                          child: _buildPdfCard(
+                            card,
+                            template,
+                            bgImage,
+                            arabicFont,
+                            arabicFontBold,
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }).toList(),
               );
             },
           ),
@@ -178,6 +194,8 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
       Map<String, String> card,
       CardTemplate template,
       pw.MemoryImage? bgImage,
+      pw.Font arabicFont,
+      pw.Font arabicFontBold,
       ) {
     final visibleFields =
     template.fields.where((f) => f.visible).toList();
@@ -202,12 +220,11 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
             final value = _fieldValue(field, card);
             if (value.isEmpty) return pw.SizedBox();
 
-            // حجم الخط: نسبة صغيرة جداً من عرض الكرت
-            final fontSize =
-                field.fontSize * (template.cardWidth / 100) * 0.7;
+            // الحساب نفسه كما في المعاينة، مع تعديل بسيط
+            final fontSize = field.fontSize * 0.10;
 
             // ارتفاع سطر النص
-            final lineHeight = fontSize * 1.2;
+            final lineHeight = fontSize * 1.8;
 
             // موضع النص
             final top = (field.y * cardH) - (lineHeight / 2);
@@ -219,22 +236,19 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
                 width: cardW,
                 height: lineHeight,
                 alignment: pw.Alignment.center,
-                child: pw.Text(
-                  value,
-                  textAlign: pw.TextAlign.center,
-                  maxLines: 1,
-                  overflow: pw.TextOverflow.clip,
-                  style: pw.TextStyle(
-                    fontSize: fontSize,
-                    fontWeight:
-                    field.fontStyle.toLowerCase().contains('bold')
-                        ? pw.FontWeight.bold
-                        : pw.FontWeight.normal,
-                    fontStyle: field.fontStyle
-                        .toLowerCase()
-                        .contains('italic')
-                        ? pw.FontStyle.italic
-                        : pw.FontStyle.normal,
+                child: pw.Directionality(
+                  textDirection: pw.TextDirection.rtl,
+                  child: pw.Text(
+                    value,
+                    textAlign: pw.TextAlign.center,
+                    maxLines: 1,
+                    overflow: pw.TextOverflow.clip,
+                    style: pw.TextStyle(
+                      font: field.fontStyle.toLowerCase().contains('bold')
+                          ? arabicFontBold
+                          : arabicFont,
+                      fontSize: fontSize,
+                    ),
                   ),
                 ),
               ),
@@ -251,7 +265,7 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
 
     switch (field.key) {
       case 'network':
-        return widget.networkName;
+        return _template?.networkName ?? widget.networkName;
       case 'name':
         return card['name'] ?? '';
       case 'password':
