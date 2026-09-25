@@ -1250,6 +1250,34 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
   int _totalCount = 0;
   bool _cancelled = false;
 
+  // ألوان أساسية ثابتة (تعمل مع الوضعين)
+  static const Color _accent = Color(0xFF7C3AED);
+  static const Color _accentDark = Color(0xFF5B21B6);
+
+  // ============================================================
+  // Helpers — تُقرأ من الثيم
+  // ============================================================
+  bool _isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  Color _bgColor(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF0F0F1E) : const Color(0xFFF5F5F7);
+
+  Color _cardColor(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF1A1A2E) : Colors.white;
+
+  Color _textColor(BuildContext context) =>
+      _isDark(context) ? Colors.white : const Color(0xFF1A1A2E);
+
+  Color _subTextColor(BuildContext context) =>
+      _isDark(context) ? Colors.white54 : Colors.black54;
+
+  Color _borderColor(BuildContext context) =>
+      _isDark(context) ? Colors.white12 : Colors.black12;
+
+  Color _fieldFillColor(BuildContext context) =>
+      _isDark(context) ? Colors.black.withValues(alpha: 0.25) : Colors.grey.shade50;
+
   @override
   void initState() {
     super.initState();
@@ -1266,6 +1294,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     _selectedProfile = widget.defaultProfile;
     _loadProfiles();
   }
+
   @override
   void dispose() {
     _prefixController.dispose();
@@ -1284,11 +1313,9 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
   Future<void> _loadProfiles() async {
     if (!mounted) return;
     setState(() => _loadingProfiles = true);
-
     try {
       final profiles = await _api.getHotspotProfiles();
       if (!mounted) return;
-
       setState(() {
         _profiles = profiles;
         _loadingProfiles = false;
@@ -1302,148 +1329,21 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     }
   }
 
-  /// تحويل الجيجا إلى بايت.
-  /// مثال: 2.5 → 2684354560
   String _gbToBytes(String gbText) {
     final gb = double.tryParse(gbText.trim());
     if (gb == null || gb <= 0) return '';
-    final bytes = (gb * 1024 * 1024 * 1024).round();
-    return bytes.toString();
+    return (gb * 1024 * 1024 * 1024).round().toString();
   }
 
-
-  List<Map<String, String>> _buildList() {
-    final count = int.tryParse(_countController.text.trim()) ?? 0;
-
-    if (count <= 0) return [];
-
-    final limitBytes = _gbToBytes(_limitGbController.text);
-
-    final list = <Map<String, String>>[];
-
-    if (_generationMode == 'sequential') {
-      final prefix = _prefixController.text.trim();
-      final start = int.tryParse(_startNumberController.text.trim()) ?? 1;
-      final padding = int.tryParse(_paddingController.text.trim()) ?? 4;
-
-      if (prefix.isEmpty) return [];
-
-      for (int i = 0; i < count; i++) {
-        final number = start + i;
-        final numberStr = number.toString().padLeft(padding, '0');
-        final name = '$prefix$numberStr';
-
-        String password;
-        switch (_passwordMode) {
-          case 'same':
-            password = name;
-            break;
-          case 'random':
-            password = _generateRandomPassword(name);
-            break;
-          case 'custom':
-            password = _customPasswordController.text.trim();
-            break;
-          case 'empty':
-          default:
-            password = '';
-            break;
-        }
-
-        // 🎫 بناء email
-        final validityValue =
-            int.tryParse(_validityValueController.text.trim()) ?? 0;
-        final validityEmail = validityValue > 0
-            ? MikroTikApi.buildValidityEmail(
-          value: validityValue,
-          unit: _validityUnit,
-        )
-            : '';
-
-        list.add({
-          'name': name,
-          'password': password,
-          'profile': _selectedProfile ?? '',
-          'limit-uptime': _limitUptimeController.text.trim(),
-          'limit-bytes-total': limitBytes,
-          'limit-gb': _limitGbController.text.trim(),
-          'comment': _commentController.text.trim(),
-          'email': validityEmail,   // 👈 جديد
-        });
-      }
-    } else {
-      final length =
-          int.tryParse(_randomLengthController.text.trim()) ?? 6;
-
-      if (length < 4 || length > 20) return [];
-
-      final usedNames = <String>{};
-
-      for (int i = 0; i < count; i++) {
-        String name;
-        int attempts = 0;
-
-        do {
-          name = _generateRandomNumber(length);
-          attempts++;
-        } while (usedNames.contains(name) && attempts < 100);
-
-        usedNames.add(name);
-
-        String password;
-        switch (_passwordMode) {
-          case 'same':
-            password = name;
-            break;
-          case 'random':
-            password = _generateRandomPassword(name);
-            break;
-          case 'custom':
-            password = _customPasswordController.text.trim();
-            break;
-          case 'empty':
-          default:
-            password = '';
-            break;
-        }
-
-        // 🎫 بناء email
-        final validityValue =
-            int.tryParse(_validityValueController.text.trim()) ?? 0;
-        final validityEmail = validityValue > 0
-            ? MikroTikApi.buildValidityEmail(
-          value: validityValue,
-          unit: _validityUnit,
-        )
-            : '';
-
-        list.add({
-          'name': name,
-          'password': password,
-          'profile': _selectedProfile ?? '',
-          'limit-uptime': _limitUptimeController.text.trim(),
-          'limit-bytes-total': limitBytes,
-          'limit-gb': _limitGbController.text.trim(),
-          'comment': _commentController.text.trim(),
-          'email': validityEmail,   // 👈 جديد
-        });
-      }
-    }
-
-    return list;
-  }
-
-  /// توليد رقم عشوائي بطول محدد.
   String _generateRandomNumber(int length) {
     final random = Random();
     final buffer = StringBuffer();
-
     for (int i = 0; i < length; i++) {
       buffer.write(random.nextInt(10));
     }
-
     return buffer.toString();
   }
+
   String _generateRandomPassword(String seed) {
     final hash = seed.codeUnits.fold<int>(
       0,
@@ -1452,63 +1352,130 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     return hash.toString().padLeft(6, '0');
   }
 
-  void _doPreview() {
-    if (!_formKey.currentState!.validate()) return;
+  List<Map<String, String>> _buildList() {
+    final count = int.tryParse(_countController.text.trim()) ?? 0;
+    if (count <= 0) return [];
 
-    final list = _buildList();
+    final limitBytes = _gbToBytes(_limitGbController.text);
+    final list = <Map<String, String>>[];
 
-    if (list.isEmpty) {
-      _showMessage('لا يمكن توليد كروت. تحقق من البادئة والعدد.', isError: true);
-      return;
+    final validityValue =
+        int.tryParse(_validityValueController.text.trim()) ?? 0;
+    final validityEmail = validityValue > 0
+        ? MikroTikApi.buildValidityEmail(
+      value: validityValue,
+      unit: _validityUnit,
+    )
+        : '';
+
+    String passwordFor(String name) {
+      switch (_passwordMode) {
+        case 'same':
+          return name;
+        case 'random':
+          return _generateRandomPassword(name);
+        case 'custom':
+          return _customPasswordController.text.trim();
+        case 'empty':
+        default:
+          return '';
+      }
     }
 
+    if (_generationMode == 'sequential') {
+      final prefix = _prefixController.text.trim();
+      final start = int.tryParse(_startNumberController.text.trim()) ?? 1;
+      final padding = int.tryParse(_paddingController.text.trim()) ?? 4;
+      if (prefix.isEmpty) return [];
+
+      for (int i = 0; i < count; i++) {
+        final numberStr = (start + i).toString().padLeft(padding, '0');
+        final name = '$prefix$numberStr';
+        list.add({
+          'name': name,
+          'password': passwordFor(name),
+          'profile': _selectedProfile ?? '',
+          'limit-uptime': _limitUptimeController.text.trim(),
+          'limit-bytes-total': limitBytes,
+          'limit-gb': _limitGbController.text.trim(),
+          'comment': _commentController.text.trim(),
+          'email': validityEmail,
+        });
+      }
+    } else {
+      final length = int.tryParse(_randomLengthController.text.trim()) ?? 6;
+      if (length < 4 || length > 20) return [];
+      final usedNames = <String>{};
+      for (int i = 0; i < count; i++) {
+        String name;
+        int attempts = 0;
+        do {
+          name = _generateRandomNumber(length);
+          attempts++;
+        } while (usedNames.contains(name) && attempts < 100);
+        usedNames.add(name);
+        list.add({
+          'name': name,
+          'password': passwordFor(name),
+          'profile': _selectedProfile ?? '',
+          'limit-uptime': _limitUptimeController.text.trim(),
+          'limit-bytes-total': limitBytes,
+          'limit-gb': _limitGbController.text.trim(),
+          'comment': _commentController.text.trim(),
+          'email': validityEmail,
+        });
+      }
+    }
+    return list;
+  }
+
+  void _doPreview() {
+    if (!_formKey.currentState!.validate()) return;
+    final list = _buildList();
+    if (list.isEmpty) {
+      _showMessage('لا يمكن توليد كروت. تحقق من البادئة والعدد.',
+          isError: true);
+      return;
+    }
     setState(() => _preview = list);
   }
+
   Future<void> _generate() async {
     if (_generating) return;
-
     if (!_formKey.currentState!.validate()) return;
-
     if (_selectedProfile == null || _selectedProfile!.isEmpty) {
       _showMessage('يجب اختيار بروفايل', isError: true);
       return;
     }
-
     final list = _buildList();
-
     if (list.isEmpty) {
       _showMessage('لا يمكن توليد كروت. تحقق من الإعدادات.', isError: true);
       return;
     }
 
-    // حساب الوقت المتوقع
     final estimatedMinutes = (list.length * 0.05).ceil();
-
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('تأكيد التوليد'),
-          content: Text(
-            'سيتم إضافة ${list.length} كرت إلى الراوتر.\n\n'
-                '⏱️ الوقت المتوقع: ~$estimatedMinutes ثانية\n'
-                '(باستخدام 10 طلبات متوازية)\n\n'
-                'هل تريد المتابعة؟',
+      builder: (context) => AlertDialog(
+        title: const Text('تأكيد التوليد'),
+        content: Text(
+          'سيتم إضافة ${list.length} كرت إلى الراوتر.\n\n'
+              '⏱️ الوقت المتوقع: ~$estimatedMinutes ثانية\n'
+              '(باستخدام 10 طلبات متوازية)\n\n'
+              'هل تريد المتابعة؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('متابعة'),
-            ),
-          ],
-        );
-      },
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('متابعة'),
+          ),
+        ],
+      ),
     );
-
     if (confirmed != true) return;
 
     setState(() {
@@ -1520,24 +1487,15 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
       _totalCount = list.length;
     });
 
-    // ============================================================
-    // Parallel Processing: 10 طلبات متوازية
-    // ============================================================
     const int batchSize = 10;
-
     final createdCards = <Map<String, String>>[];
 
     for (int i = 0; i < list.length; i += batchSize) {
       if (_cancelled) break;
       if (!mounted) return;
-
-      final end = (i + batchSize > list.length)
-          ? list.length
-          : i + batchSize;
-
+      final end = (i + batchSize > list.length) ? list.length : i + batchSize;
       final batch = list.sublist(i, end);
 
-      // إرسال دفعة من 10 طلبات متوازية
       final results = await Future.wait(
         batch.map((card) async {
           try {
@@ -1548,18 +1506,14 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
               limitUptime: card['limit-uptime']?.isEmpty == true
                   ? null
                   : card['limit-uptime'],
-              limitBytesTotal:
-              card['limit-bytes-total']?.isEmpty == true
+              limitBytesTotal: card['limit-bytes-total']?.isEmpty == true
                   ? null
                   : card['limit-bytes-total'],
               comment: card['comment']?.isEmpty == true
                   ? null
                   : card['comment'],
-              email: card['email']?.isEmpty == true
-                  ? null
-                  : card['email'],
+              email: card['email']?.isEmpty == true ? null : card['email'],
             );
-
             return {'success': 'true', 'card': card};
           } catch (e) {
             return {'success': 'false', 'card': card};
@@ -1567,7 +1521,6 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
         }),
       );
 
-      // معالجة النتائج
       for (final result in results) {
         if (result['success'] == 'true') {
           _generatedCount++;
@@ -1576,27 +1529,16 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
           _failedCount++;
         }
       }
-
       if (!mounted) return;
-
-      setState(() {
-        _currentIndex = end;
-      });
+      setState(() => _currentIndex = end);
     }
 
     if (!mounted) return;
-
     setState(() => _generating = false);
-
-    // حفظ المجموعة محلياً إذا نجح التوليد
-    if (createdCards.isNotEmpty) {
-      await _saveGroup(createdCards);
-    }
+    if (createdCards.isNotEmpty) await _saveGroup(createdCards);
 
     if (_cancelled) {
-      _showMessage(
-        'تم الإلغاء. أُضيف $_generatedCount كرت بنجاح.',
-      );
+      _showMessage('تم الإلغاء. أُضيف $_generatedCount كرت بنجاح.');
     } else {
       _showMessage(
         'تم إضافة $_generatedCount كرت بنجاح'
@@ -1605,21 +1547,13 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     }
   }
 
-  /// حفظ المجموعة محلياً.
   Future<void> _saveGroup(List<Map<String, String>> cards) async {
     if (cards.isEmpty) return;
-
     try {
       final storage = SavedCardsStorage();
       final now = DateTime.now();
-
       final id = 'grp_${now.millisecondsSinceEpoch}';
-
       final prefix = _prefixController.text.trim();
-      final count = cards.length;
-
-      final groupName = '$prefix — $count كرت';
-
       final savedCards = cards.map((c) {
         return SavedCard(
           name: c['name'] ?? '',
@@ -1631,10 +1565,9 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
           comment: c['comment'] ?? '',
         );
       }).toList();
-
       final group = SavedGroup(
         id: id,
-        name: groupName,
+        name: '$prefix — ${savedCards.length} كرت',
         createdAt: now.toIso8601String(),
         count: savedCards.length,
         profile: _selectedProfile ?? '',
@@ -1642,16 +1575,11 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
         limitGb: _limitGbController.text.trim(),
         cards: savedCards,
       );
-
       await storage.add(group);
-    } catch (_) {
-      // تجاهل أخطاء الحفظ - لا نريد إيقاف التوليد
-    }
+    } catch (_) {}
   }
 
-  void _cancel() {
-    setState(() => _cancelled = true);
-  }
+  void _cancel() => setState(() => _cancelled = true);
 
   void _showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
@@ -1664,36 +1592,219 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
         ),
       );
   }
-  Widget _generationModeChip({
+
+  // ============================================================
+  // Widgets — تصميم عصري
+  // ============================================================
+
+  Widget _gradientHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_accent, _accentDark],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: _accent.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.auto_awesome,
+                color: Colors.white, size: 26),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'توليد كروت جماعية',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'أنشئ مجموعة كروت بضغطة واحدة',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard(BuildContext context,
+      {required Widget child, Color? accent}) {
+    final c = accent ?? _accent;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardColor(context),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: c.withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: c.withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _sectionTitle(BuildContext context, IconData icon, String title,
+      {Color? color}) {
+    final c = color ?? _accent;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10, top: 4, right: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: c),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: _textColor(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _darkField(
+      BuildContext context, {
+        required String label,
+        required TextEditingController controller,
+        String? hint,
+        TextInputType? keyboardType,
+        String? Function(String?)? validator,
+        bool enabled = true,
+        Widget? prefixIcon,
+        Widget? suffixIcon,
+      }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        enabled: enabled,
+        keyboardType: keyboardType,
+        style: TextStyle(color: _textColor(context), fontSize: 14),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          labelStyle: TextStyle(color: _subTextColor(context), fontSize: 13),
+          hintStyle: TextStyle(color: _subTextColor(context), fontSize: 13),
+          filled: true,
+          fillColor: _fieldFillColor(context),
+          prefixIcon: prefixIcon,
+          suffixIcon: suffixIcon,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: _borderColor(context)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: _borderColor(context)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: _accent, width: 1.5),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: _borderColor(context)),
+          ),
+        ),
+        validator: validator,
+      ),
+    );
+  }
+
+  Widget _infoBox(BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String text,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _generationModeChip(BuildContext context, {
     required String label,
     required String mode,
     required IconData icon,
     required Color color,
   }) {
     final isSelected = _generationMode == mode;
-
     return Expanded(
       child: GestureDetector(
         onTap: _generating
             ? null
-            : () {
-          setState(() {
-            _generationMode = mode;
-          });
-        },
+            : () => setState(() => _generationMode = mode),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(
-            vertical: 12,
-            horizontal: 8,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           decoration: BoxDecoration(
             color: isSelected
                 ? color.withValues(alpha: 0.15)
-                : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(10),
+                : _fieldFillColor(context),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? color : Colors.transparent,
+              color: isSelected ? color : _borderColor(context),
               width: 1.5,
             ),
           ),
@@ -1703,16 +1814,15 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
               Icon(
                 icon,
                 size: 20,
-                color: isSelected ? color : Colors.grey,
+                color: isSelected ? color : _subTextColor(context),
               ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight:
-                  isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? color : Colors.grey.shade700,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? color : _textColor(context),
                 ),
               ),
             ],
@@ -1722,36 +1832,28 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     );
   }
 
-  Widget _passwordModeChip({
+  Widget _passwordModeChip(BuildContext context, {
     required String label,
     required String mode,
     required IconData icon,
     required Color color,
   }) {
     final isSelected = _passwordMode == mode;
-
     return Expanded(
       child: GestureDetector(
         onTap: _generating
             ? null
-            : () {
-          setState(() {
-            _passwordMode = mode;
-          });
-        },
+            : () => setState(() => _passwordMode = mode),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(
-            vertical: 10,
-            horizontal: 4,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
             color: isSelected
                 ? color.withValues(alpha: 0.15)
-                : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(10),
+                : _fieldFillColor(context),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? color : Colors.transparent,
+              color: isSelected ? color : _borderColor(context),
               width: 1.5,
             ),
           ),
@@ -1760,7 +1862,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
               Icon(
                 icon,
                 size: 18,
-                color: isSelected ? color : Colors.grey,
+                color: isSelected ? color : _subTextColor(context),
               ),
               const SizedBox(height: 4),
               Text(
@@ -1768,9 +1870,8 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight:
-                  isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? color : Colors.grey.shade700,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? color : _textColor(context),
                 ),
               ),
             ],
@@ -1780,68 +1881,93 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     );
   }
 
-  Widget _field({
-    required String label,
-    required TextEditingController controller,
-    String? hint,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-    bool enabled = true,
-    Widget? prefixIcon,
-    Widget? suffixIcon,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        controller: controller,
-        enabled: enabled,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          filled: true,
-          fillColor: Colors.grey.shade50,
-          prefixIcon: prefixIcon,
-          suffixIcon: suffixIcon,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+  Widget _previewCardItem(BuildContext context, Map<String, String> card, int index) {
+    final password = card['password'] ?? '';
+    final uptime = card['limit-uptime'] ?? '';
+    final gb = card['limit-gb'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _fieldFillColor(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _borderColor(context)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_accent, _accentDark],
+              ),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '${index + 1}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  card['name'] ?? '',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: _textColor(context),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    if (password.isNotEmpty)
+                      _miniChip(Icons.key, password, const Color(0xFF8B5CF6)),
+                    if (uptime.isNotEmpty)
+                      _miniChip(Icons.timer, uptime, const Color(0xFF10B981)),
+                    if (gb.isNotEmpty)
+                      _miniChip(
+                          Icons.data_usage, '$gb GB', const Color(0xFF06B6D4)),
+                  ],
+                ),
+              ],
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.blue, width: 2),
-          ),
-        ),
-        validator: validator,
+        ],
       ),
     );
   }
 
-  Widget _sectionTitle(String icon, String title, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10, top: 4),
+  Widget _miniChip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: (color ?? Colors.blue).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _iconFromEmoji(icon),
-              size: 18,
-              color: color ?? Colors.blue,
-            ),
-          ),
-          const SizedBox(width: 8),
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 3),
           Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1850,56 +1976,19 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
     );
   }
 
-  IconData _iconFromEmoji(String emoji) {
-    switch (emoji) {
-      case '🔤':
-        return Icons.text_fields;
-      case '📡':
-        return Icons.router;
-      case '🔑':
-        return Icons.key;
-      case '⏱️':
-        return Icons.timer;
-      case '💬':
-        return Icons.comment;
-      default:
-        return Icons.circle;
-    }
-  }
-
-  Widget _sectionCard({
-    required Widget child,
-    Color? accent,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: (accent ?? Colors.blue).withValues(alpha: 0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: (accent ?? Colors.blue).withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final bg = _bgColor(context);
+    final textColor = _textColor(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: bg,
       appBar: AppBar(
         title: const Text('📦 توليد كروت جماعية'),
         centerTitle: true,
+        backgroundColor: bg,
+        foregroundColor: textColor,
+        elevation: 0,
         actions: [
           if (_generating)
             IconButton(
@@ -1912,50 +2001,49 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           children: [
-            // ============================================
-            // إعدادات التسمية
-            // ============================================
-            _sectionTitle('🔤', 'نمط التوليد'),
+            _gradientHeader(context),
+            const SizedBox(height: 20),
 
+            // ============================================
+            // نمط التوليد
+            // ============================================
+            _sectionTitle(context, Icons.text_fields, 'نمط التوليد'),
             _sectionCard(
-              accent: Colors.blue,
+              context,
+              accent: _accent,
               child: Column(
                 children: [
-                  // ============================================
-                  // اختيار النمط
-                  // ============================================
                   Row(
                     children: [
                       _generationModeChip(
+                        context,
                         label: 'تسلسلي',
                         mode: 'sequential',
                         icon: Icons.format_list_numbered,
-                        color: Colors.blue,
+                        color: const Color(0xFF8B5CF6),
                       ),
                       const SizedBox(width: 8),
                       _generationModeChip(
+                        context,
                         label: 'عشوائي',
                         mode: 'random',
                         icon: Icons.shuffle,
-                        color: Colors.deepOrange,
+                        color: const Color(0xFFF97316),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 14),
-
-                  // ============================================
-                  // إعدادات الوضع التسلسلي
-                  // ============================================
                   if (_generationMode == 'sequential') ...[
-                    _field(
+                    _darkField(
+                      context,
                       label: 'البادئة (Prefix) *',
                       controller: _prefixController,
                       hint: 'مثال: user',
                       enabled: !_generating,
-                      prefixIcon: const Icon(Icons.text_fields, size: 18),
+                      prefixIcon: Icon(Icons.text_fields,
+                          size: 18, color: _subTextColor(context)),
                       validator: (value) {
                         if (_generationMode == 'sequential' &&
                             (value == null || value.trim().isEmpty)) {
@@ -1964,37 +2052,34 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                         return null;
                       },
                     ),
-
                     Row(
                       children: [
                         Expanded(
-                          child: _field(
+                          child: _darkField(
+                            context,
                             label: 'يبدأ من',
                             controller: _startNumberController,
                             hint: '1',
                             keyboardType: TextInputType.number,
                             enabled: !_generating,
                             validator: (value) {
-                              final n =
-                              int.tryParse(value?.trim() ?? '');
-                              if (n == null || n < 0) {
-                                return 'رقم غير صالح';
-                              }
+                              final n = int.tryParse(value?.trim() ?? '');
+                              if (n == null || n < 0) return 'رقم غير صالح';
                               return null;
                             },
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: _field(
-                            label: 'عدد خانات الرقم',
+                          child: _darkField(
+                            context,
+                            label: 'عدد الخانات',
                             controller: _paddingController,
                             hint: '4',
                             keyboardType: TextInputType.number,
                             enabled: !_generating,
                             validator: (value) {
-                              final n =
-                              int.tryParse(value?.trim() ?? '');
+                              final n = int.tryParse(value?.trim() ?? '');
                               if (n == null || n < 1 || n > 10) {
                                 return 'من 1 إلى 10';
                               }
@@ -2005,52 +2090,26 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                       ],
                     ),
                   ],
-
-                  // ============================================
-                  // إعدادات الوضع العشوائي
-                  // ============================================
                   if (_generationMode == 'random') ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.orange.shade200,
-                        ),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.info,
-                            color: Colors.orange,
-                            size: 18,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'أسماء عشوائية بأرقام فقط — صعبة التخمين',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.orange,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    _infoBox(
+                      context,
+                      icon: Icons.info,
+                      color: const Color(0xFFF97316),
+                      text: 'أسماء عشوائية بأرقام فقط — صعبة التخمين',
                     ),
                     const SizedBox(height: 12),
-                    _field(
+                    _darkField(
+                      context,
                       label: 'طول الاسم *',
                       controller: _randomLengthController,
                       hint: 'مثال: 6',
                       keyboardType: TextInputType.number,
                       enabled: !_generating,
-                      prefixIcon: const Icon(Icons.straighten, size: 18),
+                      prefixIcon: Icon(Icons.straighten,
+                          size: 18, color: _subTextColor(context)),
                       validator: (value) {
                         if (_generationMode == 'random') {
-                          final n =
-                          int.tryParse(value?.trim() ?? '');
+                          final n = int.tryParse(value?.trim() ?? '');
                           if (n == null || n < 4 || n > 20) {
                             return 'من 4 إلى 20';
                           }
@@ -2059,22 +2118,18 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                       },
                     ),
                   ],
-
-                  // ============================================
-                  // عدد الكروت (مشترك)
-                  // ============================================
-                  _field(
+                  _darkField(
+                    context,
                     label: 'عدد الكروت *',
                     controller: _countController,
                     hint: '10',
                     keyboardType: TextInputType.number,
                     enabled: !_generating,
-                    prefixIcon: const Icon(Icons.numbers, size: 18),
+                    prefixIcon: Icon(Icons.numbers,
+                        size: 18, color: _subTextColor(context)),
                     validator: (value) {
                       final n = int.tryParse(value?.trim() ?? '');
-                      if (n == null || n < 1) {
-                        return 'العدد 1 على الأقل';
-                      }
+                      if (n == null || n < 1) return 'العدد 1 على الأقل';
                       if (n > 1000) return 'الحد 1000';
                       return null;
                     },
@@ -2086,24 +2141,45 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             // ============================================
             // البروفايل
             // ============================================
-            _sectionTitle('📡', 'البروفايل', color: Colors.teal),
-
+            _sectionTitle(context, Icons.router, 'البروفايل',
+                color: const Color(0xFF06B6D4)),
             _sectionCard(
-              accent: Colors.teal,
+              context,
+              accent: const Color(0xFF06B6D4),
               child: _loadingProfiles
                   ? const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
-                child: LinearProgressIndicator(),
+                child: LinearProgressIndicator(
+                  color: _accent,
+                  backgroundColor: Colors.white12,
+                ),
               )
                   : DropdownButtonFormField<String>(
                 initialValue: _selectedProfile,
+                dropdownColor: _cardColor(context),
+                style: TextStyle(color: _textColor(context)),
                 decoration: InputDecoration(
                   labelText: 'البروفايل *',
-                  prefixIcon: const Icon(Icons.router, size: 18),
+                  labelStyle:
+                  TextStyle(color: _subTextColor(context)),
+                  prefixIcon: Icon(Icons.router,
+                      size: 18, color: _subTextColor(context)),
                   filled: true,
-                  fillColor: Colors.grey.shade50,
+                  fillColor: _fieldFillColor(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                    BorderSide(color: _borderColor(context)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                    BorderSide(color: _borderColor(context)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                        color: _accent, width: 1.5),
                   ),
                 ),
                 items: _profiles.map((profile) {
@@ -2124,103 +2200,100 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             // ============================================
             // كلمة المرور
             // ============================================
-            _sectionTitle('🔑', 'كلمة المرور', color: Colors.purple),
-
+            _sectionTitle(context, Icons.key, 'كلمة المرور',
+                color: const Color(0xFF8B5CF6)),
             _sectionCard(
-              accent: Colors.purple,
+              context,
+              accent: const Color(0xFF8B5CF6),
               child: Column(
                 children: [
                   Row(
                     children: [
-                      _passwordModeChip(
-                        label: 'فارغة',
-                        mode: 'empty',
-                        icon: Icons.lock_open,
-                        color: Colors.grey,
-                      ),
+                      _passwordModeChip(context,
+                          label: 'فارغة',
+                          mode: 'empty',
+                          icon: Icons.lock_open,
+                          color: Colors.grey),
                       const SizedBox(width: 6),
-                      _passwordModeChip(
-                        label: 'مثل الاسم',
-                        mode: 'same',
-                        icon: Icons.content_copy,
-                        color: Colors.blue,
-                      ),
+                      _passwordModeChip(context,
+                          label: 'مثل الاسم',
+                          mode: 'same',
+                          icon: Icons.content_copy,
+                          color: const Color(0xFF3B82F6)),
                       const SizedBox(width: 6),
-                      _passwordModeChip(
-                        label: 'عشوائية',
-                        mode: 'random',
-                        icon: Icons.casino,
-                        color: Colors.purple,
-                      ),
+                      _passwordModeChip(context,
+                          label: 'عشوائية',
+                          mode: 'random',
+                          icon: Icons.casino,
+                          color: const Color(0xFF8B5CF6)),
                       const SizedBox(width: 6),
-                      _passwordModeChip(
-                        label: 'موحّدة',
-                        mode: 'custom',
-                        icon: Icons.edit,
-                        color: Colors.orange,
-                      ),
+                      _passwordModeChip(context,
+                          label: 'موحّدة',
+                          mode: 'custom',
+                          icon: Icons.edit,
+                          color: const Color(0xFFF97316)),
                     ],
                   ),
-
                   const SizedBox(height: 10),
-
                   if (_passwordMode == 'custom')
-                    _field(
+                    _darkField(
+                      context,
                       label: 'كلمة المرور الموحّدة',
                       controller: _customPasswordController,
                       hint: 'نفس كلمة المرور لكل الكروت',
                       enabled: !_generating,
-                      prefixIcon: const Icon(Icons.key, size: 18),
+                      prefixIcon: Icon(Icons.key,
+                          size: 18, color: _subTextColor(context)),
                     )
                   else if (_passwordMode == 'same')
-                    _infoBox(
-                      icon: Icons.info,
-                      color: Colors.blue,
-                      text: 'كل كرت ستكون كلمة مروره نفس اسم المستخدم',
-                    )
+                    _infoBox(context,
+                        icon: Icons.info,
+                        color: const Color(0xFF3B82F6),
+                        text: 'كل كرت ستكون كلمة مروره نفس اسم المستخدم')
                   else if (_passwordMode == 'random')
-                      _infoBox(
-                        icon: Icons.info,
-                        color: Colors.purple,
-                        text: 'كل كرت ستكون كلمة مروره عشوائية',
-                      )
+                      _infoBox(context,
+                          icon: Icons.info,
+                          color: const Color(0xFF8B5CF6),
+                          text: 'كل كرت ستكون كلمة مروره عشوائية')
                     else
-                      _infoBox(
-                        icon: Icons.info,
-                        color: Colors.grey,
-                        text: 'الكروت ستكون بدون كلمة مرور',
-                      ),
+                      _infoBox(context,
+                          icon: Icons.info,
+                          color: Colors.grey,
+                          text: 'الكروت ستكون بدون كلمة مرور'),
                 ],
               ),
             ),
 
             // ============================================
-            // 🎫 الصلاحية (Script)
+            // الصلاحية
             // ============================================
-            _sectionTitle('🎫', 'الصلاحية', color: Colors.deepPurple),
-
+            _sectionTitle(context, Icons.card_giftcard, 'الصلاحية',
+                color: const Color(0xFFA855F7)),
             _sectionCard(
-              accent: Colors.deepPurple,
+              context,
+              accent: const Color(0xFFA855F7),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'تُحفظ في Email (تعمل مع Script Hotspot_Validity)',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(
+                        fontSize: 12, color: _subTextColor(context)),
                   ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
                         flex: 2,
-                        child: _field(
+                        child: _darkField(
+                          context,
                           label: 'المدة',
                           controller: _validityValueController,
                           hint: '24',
                           keyboardType: TextInputType.number,
                           enabled: !_generating,
-                          prefixIcon:
-                          const Icon(Icons.timer, size: 18),
+                          prefixIcon: Icon(Icons.timer,
+                              size: 18, color: _subTextColor(context)),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -2230,12 +2303,31 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: DropdownButtonFormField<String>(
                             initialValue: _validityUnit,
-                            decoration: const InputDecoration(
+                            dropdownColor: _cardColor(context),
+                            style: TextStyle(color: _textColor(context)),
+                            decoration: InputDecoration(
                               labelText: 'الوحدة',
-                              prefixIcon:
-                              Icon(Icons.schedule, size: 18),
-                              border: OutlineInputBorder(),
+                              labelStyle: TextStyle(
+                                  color: _subTextColor(context)),
+                              prefixIcon: Icon(Icons.schedule,
+                                  size: 18, color: _subTextColor(context)),
                               filled: true,
+                              fillColor: _fieldFillColor(context),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: _borderColor(context)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: _borderColor(context)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                    color: _accent, width: 1.5),
+                              ),
                             ),
                             items: const [
                               DropdownMenuItem(
@@ -2251,8 +2343,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                                 ? null
                                 : (v) {
                               if (v != null) {
-                                setState(
-                                        () => _validityUnit = v);
+                                setState(() => _validityUnit = v);
                               }
                             },
                           ),
@@ -2265,31 +2356,34 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             ),
 
             // ============================================
-            // 📊 القيود الأخرى
+            // قيود أخرى
             // ============================================
-            _sectionTitle('📊', 'قيود أخرى', color: Colors.green),
-
+            _sectionTitle(context, Icons.data_usage, 'قيود أخرى',
+                color: const Color(0xFF10B981)),
             _sectionCard(
-              accent: Colors.green,
+              context,
+              accent: const Color(0xFF10B981),
               child: Column(
                 children: [
-                  _field(
+                  _darkField(
+                    context,
                     label: 'حد البيانات (بـ GB)',
                     controller: _limitGbController,
                     hint: '2 = 2 جيجا، 0.5 = 500 ميجا',
                     keyboardType:
-                    const TextInputType.numberWithOptions(
-                        decimal: true),
+                    const TextInputType.numberWithOptions(decimal: true),
                     enabled: !_generating,
-                    prefixIcon: const Icon(Icons.data_usage, size: 18),
+                    prefixIcon: Icon(Icons.data_usage,
+                        size: 18, color: _subTextColor(context)),
                   ),
-
-                  _field(
+                  _darkField(
+                    context,
                     label: 'ملاحظة',
                     controller: _commentController,
                     hint: 'ملاحظة توضع على جميع الكروت',
                     enabled: !_generating,
-                    prefixIcon: const Icon(Icons.comment, size: 18),
+                    prefixIcon: Icon(Icons.comment,
+                        size: 18, color: _subTextColor(context)),
                   ),
                 ],
               ),
@@ -2307,9 +2401,16 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                     children: [
                       Expanded(
                         child: SizedBox(
-                          height: 50,
+                          height: 52,
                           child: OutlinedButton.icon(
                             onPressed: _doPreview,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _accent,
+                              side: const BorderSide(color: _accent),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
                             icon: const Icon(Icons.visibility, size: 20),
                             label: const Text('معاينة'),
                           ),
@@ -2318,11 +2419,14 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: SizedBox(
-                          height: 50,
+                          height: 52,
                           child: FilledButton.icon(
                             onPressed: _generate,
                             style: FilledButton.styleFrom(
-                              backgroundColor: Colors.green.shade600,
+                              backgroundColor: _accent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
                             icon: const Icon(Icons.auto_awesome, size: 20),
                             label: const Text('توليد'),
@@ -2335,7 +2439,7 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                   if (_preview.isNotEmpty)
                     SizedBox(
                       width: double.infinity,
-                      height: 50,
+                      height: 52,
                       child: FilledButton.icon(
                         onPressed: () {
                           Navigator.push(
@@ -2349,7 +2453,10 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                           );
                         },
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.indigo,
+                          backgroundColor: const Color(0xFF4F46E5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         icon: const Icon(Icons.print),
                         label: const Text(
@@ -2366,73 +2473,88 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             // ============================================
             if (_generating) ...[
               const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'جاري التوليد...',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _cardColor(context),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _borderColor(context)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'جاري التوليد...',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: _textColor(context),
                       ),
-                      const SizedBox(height: 12),
-                      LinearProgressIndicator(
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
                         value: _totalCount > 0
                             ? _currentIndex / _totalCount
                             : 0,
+                        minHeight: 8,
+                        color: _accent,
+                        backgroundColor: _borderColor(context),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '$_currentIndex / $_totalCount',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$_currentIndex / $_totalCount',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: _textColor(context),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Column(
-                            children: [
-                              const Text(
-                                'نجح',
-                                style: TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 12,
-                                ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            const Text(
+                              'نجح',
+                              style: TextStyle(
+                                color: Color(0xFF10B981),
+                                fontSize: 12,
                               ),
-                              Text(
-                                '$_generatedCount',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                            ),
+                            Text(
+                              '$_generatedCount',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: _textColor(context),
                               ),
-                            ],
-                          ),
-                          Column(
-                            children: [
-                              const Text(
-                                'فشل',
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                ),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            const Text(
+                              'فشل',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
                               ),
-                              Text(
-                                '$_failedCount',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                            ),
+                            Text(
+                              '$_failedCount',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: _textColor(context),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -2443,24 +2565,28 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             if (_preview.isNotEmpty && !_generating) ...[
               const SizedBox(height: 16),
               _sectionTitle(
-                '👁️',
+                context,
+                Icons.visibility,
                 'معاينة الكروت (${_preview.length})',
-                color: Colors.indigo,
+                color: const Color(0xFF4F46E5),
               ),
               _sectionCard(
-                accent: Colors.indigo,
+                context,
+                accent: const Color(0xFF4F46E5),
                 child: Column(
                   children: [
-                    for (int i = 0; i < (_preview.length > 20 ? 20 : _preview.length); i++)
-                      _previewCardItem(_preview[i], i),
+                    for (int i = 0;
+                    i < (_preview.length > 20 ? 20 : _preview.length);
+                    i++)
+                      _previewCardItem(context, _preview[i], i),
                     if (_preview.length > 20)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           '... و ${_preview.length - 20} كرت إضافي',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.grey,
+                          style: TextStyle(
+                            color: _subTextColor(context),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -2473,126 +2599,6 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
             const SizedBox(height: 30),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _infoBox({
-    required IconData icon,
-    required Color color,
-    required String text,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 12, color: color),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _previewCardItem(Map<String, String> card, int index) {
-    final password = card['password'] ?? '';
-    final uptime = card['limit-uptime'] ?? '';
-    final gb = card['limit-gb'] ?? '';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: Colors.blue.shade100,
-            child: Text(
-              '${index + 1}',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.blue.shade800,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  card['name'] ?? '',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    if (password.isNotEmpty) ...[
-                      Icon(Icons.key,
-                          size: 10, color: Colors.purple.shade400),
-                      const SizedBox(width: 2),
-                      Text(
-                        password,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.purple.shade700,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    if (uptime.isNotEmpty) ...[
-                      Icon(Icons.timer,
-                          size: 10, color: Colors.green.shade400),
-                      const SizedBox(width: 2),
-                      Text(
-                        uptime,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.green.shade700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    if (gb.isNotEmpty) ...[
-                      Icon(Icons.data_usage,
-                          size: 10, color: Colors.blue.shade400),
-                      const SizedBox(width: 2),
-                      Text(
-                        '$gb GB',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
