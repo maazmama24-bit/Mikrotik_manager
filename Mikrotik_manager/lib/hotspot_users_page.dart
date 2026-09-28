@@ -557,7 +557,36 @@ backgroundColor: isError ? Colors.red : null,
 );
 }
 
-String _formatBytes(String value) {
+  bool _isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  Color _bgColor(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF0F0F1E) : const Color(0xFFF5F5F7);
+
+  Color _cardColor(BuildContext context) =>
+      _isDark(context) ? const Color(0xFF1A1A2E) : Colors.white;
+
+  Color _textColor(BuildContext context) =>
+      _isDark(context) ? Colors.white : const Color(0xFF1A1A2E);
+
+  Color _subTextColor(BuildContext context) =>
+      _isDark(context) ? Colors.white54 : Colors.black54;
+
+
+
+  Color _borderColor(BuildContext context) =>
+      _isDark(context) ? Colors.white12 : Colors.black12;
+
+  String _formatValidity(String email) {
+    final v = email.split('@').first;
+    if (v.endsWith('m')) return '${v.substring(0, v.length - 1)} دقيقة';
+    if (v.endsWith('h')) return '${v.substring(0, v.length - 1)} ساعة';
+    if (v.endsWith('d')) return '${v.substring(0, v.length - 1)} يوم';
+    if (v.endsWith('w')) return '${v.substring(0, v.length - 1)} أسبوع';
+    return v;
+  }
+
+  String _formatBytes(String value) {
 final bytes = int.tryParse(value);
 if (bytes == null || bytes <= 0) return '-';
 
@@ -581,11 +610,17 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
         ? '👥 المستخدمون'
         : '👥 ${widget.profile}';
 
+    final bg = _bgColor(context);
+    final textColor = _textColor(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: bg,
       appBar: AppBar(
         title: Text(title),
         centerTitle: true,
+        backgroundColor: bg,
+        foregroundColor: textColor,
+        elevation: 0,
         actions: [
           IconButton(
             tooltip: 'بحث',
@@ -651,20 +686,35 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
           if (_showSearchBar)
             Container(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-              color: Colors.white,
+              color: bg,
               child: TextField(
+                style: TextStyle(color: textColor),
                 controller: _searchController,
                 autofocus: true,
                 decoration: InputDecoration(
                   hintText: 'ابحث باسم الكرت، كلمة المرور، البروفايل...',
-                  prefixIcon: const Icon(Icons.search),
+                  hintStyle: TextStyle(color: _subTextColor(context)),
+                  prefixIcon: Icon(Icons.search, color: _subTextColor(context)),
                   suffixIcon: IconButton(
                     onPressed: _loading ? null : _searchUsers,
-                    icon: const Icon(Icons.arrow_forward),
+                    icon: Icon(Icons.arrow_forward, color: _subTextColor(context)),
                   ),
-                  border: const OutlineInputBorder(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _borderColor(context)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _borderColor(context)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+                  ),
                   filled: true,
-                  fillColor: Colors.grey.shade100,
+                  fillColor: _isDark(context)
+                      ? Colors.black.withValues(alpha: 0.25)
+                      : Colors.grey.shade100,
                   isDense: true,
                 ),
                 onSubmitted: (_) => _searchUsers(),
@@ -753,11 +803,14 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
   // ===========================================================================
 
   Widget _buildStatsCard() {
+    final isDark = _isDark(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade500, Colors.blue.shade700],
+          colors: isDark
+              ? [const Color(0xFF7C3AED), const Color(0xFF5B21B6)]
+              : [Colors.blue.shade500, Colors.blue.shade700],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
@@ -933,7 +986,7 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
   Widget _buildToolbar() {
     return Container(
       padding: const EdgeInsets.all(12),
-      color: Colors.white,
+      color: _cardColor(context),
       child: Column(
         children: [
           // صف أول: نوع البحث + الفرز
@@ -942,13 +995,27 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: _searchType,
-                  decoration: const InputDecoration(
+                  dropdownColor: _cardColor(context),
+                  style: TextStyle(color: _textColor(context)),
+                  decoration: InputDecoration(
                     labelText: 'نوع البحث',
-                    border: OutlineInputBorder(),
+                    labelStyle: TextStyle(color: _subTextColor(context)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _borderColor(context)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _borderColor(context)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+                    ),
                     isDense: true,
                     contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    prefixIcon: Icon(Icons.search, size: 18),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    prefixIcon: Icon(Icons.search, size: 18, color: _subTextColor(context)),
                   ),
                   items: const [
                     DropdownMenuItem(
@@ -970,13 +1037,27 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: _sortBy,
-                  decoration: const InputDecoration(
+                  dropdownColor: _cardColor(context),
+                  style: TextStyle(color: _textColor(context)),
+                  decoration: InputDecoration(
                     labelText: 'الفرز',
-                    border: OutlineInputBorder(),
+                    labelStyle: TextStyle(color: _subTextColor(context)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _borderColor(context)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _borderColor(context)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+                    ),
                     isDense: true,
                     contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    prefixIcon: Icon(Icons.sort, size: 18),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    prefixIcon: Icon(Icons.sort, size: 18, color: _subTextColor(context)),
                   ),
                   items: const [
                     DropdownMenuItem(
@@ -1050,23 +1131,28 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
     final isDisabled = user['disabled'] == 'yes' ||
         user['disabled'] == 'true';
 
-    final cardColor =
-    isDisabled ? Colors.red.shade50 : Colors.green.shade50;
+    final cardColor = isDisabled
+        ? (Theme.of(context).brightness == Brightness.dark
+        ? Colors.red.withValues(alpha: 0.15)
+        : Colors.red.shade50)
+        : (Theme.of(context).brightness == Brightness.dark
+        ? Colors.green.withValues(alpha: 0.15)
+        : Colors.green.shade50);
     final iconColor = isDisabled ? Colors.red : Colors.green;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardColor(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: iconColor.withValues(alpha: 0.15),
+          color: iconColor.withValues(alpha: 0.25),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: iconColor.withValues(alpha: 0.05),
-            blurRadius: 6,
+            color: iconColor.withValues(alpha: 0.08),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -1100,10 +1186,11 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
                 Expanded(
                   child: Text(
                     username,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                       fontFamily: 'monospace',
+                      color: _textColor(context),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1196,6 +1283,38 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
                       ),
                     ),
                   ],
+                  if ((user['email'] ?? '').isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.card_giftcard,
+                            size: 10,
+                            color: Colors.deepPurple.shade600,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            _formatValidity(user['email']!),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.deepPurple.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1210,6 +1329,12 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
                     if (password.isNotEmpty)
                       _detailRow(Icons.lock, 'Password', password),
                     _detailRow(Icons.category, 'Profile', profile),
+                    if ((user['email'] ?? '').isNotEmpty)
+                      _detailRow(
+                        Icons.card_giftcard,
+                        'الصلاحية',
+                        _formatValidity(user['email']!),
+                      ),
                     _detailRow(Icons.timer, 'Limit Uptime', limitUptime),
                     if (limitBytes.isNotEmpty)
                       _detailRow(
@@ -1269,8 +1394,8 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
             width: 100,
             child: Text(
               title,
-              style: const TextStyle(
-                color: Colors.grey,
+              style: TextStyle(
+                color: _subTextColor(context),
                 fontSize: 12,
               ),
             ),
@@ -1278,10 +1403,11 @@ return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
           Expanded(
             child: Text(
               value.isEmpty ? '-' : value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12.5,
                 fontFamily: 'monospace',
+                color: _textColor(context),
               ),
             ),
           ),

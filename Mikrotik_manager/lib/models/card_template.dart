@@ -346,9 +346,9 @@ class CardTemplate {
         visible: false,
       ),
       TemplateField(
-        id: 'f_uptime',
-        label: 'المدة',
-        key: 'limit-uptime',
+        id: 'f_validity',
+        label: 'الصلاحية',
+        key: 'validity',
         fontSize: 11,
         fontStyle: 'normal',
         x: 0.5,

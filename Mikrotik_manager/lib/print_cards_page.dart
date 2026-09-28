@@ -265,6 +265,15 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
     );
   }
 
+  String _formatValidity(String email) {
+    final v = email.split('@').first;
+    if (v.endsWith('m')) return '${v.substring(0, v.length - 1)} دقيقة';
+    if (v.endsWith('h')) return '${v.substring(0, v.length - 1)} ساعة';
+    if (v.endsWith('d')) return '${v.substring(0, v.length - 1)} يوم';
+    if (v.endsWith('w')) return '${v.substring(0, v.length - 1)} أسبوع';
+    return v;
+  }
+
   String _fieldValue(
       TemplateField field, Map<String, String> card) {
     if (field.isCustom) return field.customValue;
@@ -282,6 +291,8 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
         return card['limit-gb'] ?? '';
       case 'comment':
         return card['comment'] ?? '';
+      case 'validity':
+        return _formatValidity(card['email'] ?? '');
       default:
         return '';
     }
@@ -669,6 +680,8 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
         return firstCard['note2'] ?? 'ملاحظة 2';
       case 'comment':
         return firstCard['comment'] ?? 'ملاحظة';
+      case 'validity':
+        return _formatValidity(firstCard['email'] ?? '');
       default:
         return field.label;
     }
@@ -958,7 +971,7 @@ class _PrintCardsPageState extends State<PrintCardsPage> {
       case 'network':
         currentValue = _template!.networkName;
         break;
-      case 'limit-uptime':
+      case 'validity':
         currentValue = field.customValue.isNotEmpty
             ? field.customValue
             : '8 يوم';

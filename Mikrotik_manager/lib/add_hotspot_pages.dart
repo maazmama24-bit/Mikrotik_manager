@@ -1880,7 +1880,14 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
       ),
     );
   }
-
+  String _formatValidity(String email) {
+    final v = email.split('@').first;
+    if (v.endsWith('m')) return '${v.substring(0, v.length - 1)} دقيقة';
+    if (v.endsWith('h')) return '${v.substring(0, v.length - 1)} ساعة';
+    if (v.endsWith('d')) return '${v.substring(0, v.length - 1)} يوم';
+    if (v.endsWith('w')) return '${v.substring(0, v.length - 1)} أسبوع';
+    return v;
+  }
   Widget _previewCardItem(BuildContext context, Map<String, String> card, int index) {
     final password = card['password'] ?? '';
     final uptime = card['limit-uptime'] ?? '';
@@ -1941,6 +1948,11 @@ class _GenerateCardsPageState extends State<GenerateCardsPage> {
                     if (gb.isNotEmpty)
                       _miniChip(
                           Icons.data_usage, '$gb GB', const Color(0xFF06B6D4)),
+                    if ((card['email'] ?? '').isNotEmpty)
+                      _miniChip(
+                          Icons.card_giftcard,
+                          _formatValidity(card['email']!),
+                          const Color(0xFFA855F7)),
                   ],
                 ),
               ],
